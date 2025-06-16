@@ -1,100 +1,88 @@
-import pygame
-from settings import *
-from os.path import join, dirname, abspath
-from os import walk
-from image_utils import *
 from typing import Dict, List
+import pygame
+from pygame import Surface
+from settings import TILE_SIZE, ANIMATION_SPEED
+from resource_manager import ResourceManager
+from image_utils import collect_image_paths, load_images_from_paths
 
 
 class Player(pygame.sprite.Sprite):
-    # Кеш кадрів анімації для всіх гравців
     _frames_cache: Dict[str, List[Surface]] = {}
 
-    def __init__(
-            self,
-            pos: pygame.math.Vector2,
-            groups: pygame.sprite.Group,
-            collision_sprites: pygame.sprite.Group,
-    ):
+    def __init__(self, pos, groups, collision_sprites):
         super().__init__(groups)
-
-        # Load sprites for player
         if not Player._frames_cache:
-            for state in ['down', 'up', 'left', 'right']:
+            for state in ('down', 'up', 'left', 'right'):
                 paths = collect_image_paths(state)
-                self.frames[state] = load_images_from_paths(paths)
-        self.frames: Dict[str, List[Surface]] = Player._frames_cache
+                Player._frames_cache[state] = load_images_from_paths(paths)
+
+        self.frames = Player._frames_cache
 
         self.state = 'down'
-        self.frame_index = 0
+        self.frame_index = 0.0
+        self.image = self.frames[self.state][0]
+        self.rect = self.image.get_rect(center=pos)
+        self.hitbox_rect = self.rect.inflate(-60, -90)
 
-        # default state
-        self.image: Surface = self.frames[self.state][0]
-        # collision rect
-        self.rect: pygame.Rect = self.image.get_rect()
-        # Smaller hitbox for player to avoid invisible collision problems
-        self.hitbox_rect: pygame.Rect = self.rect.inflate(-60, -90)
+        self.direction = pygame.Vector2()
+        self.speed = 500
+        self.collisions = collision_sprites
 
-        # movement
-        self.direction: pygame.math.Vector2 = pygame.math.Vector2(0, 0)
-        self.speed: float = 500
-        self.collision_sprites = collision_sprites
-
-    def handle_input(self) -> None:
+    def handle_input(self):
+        pygame.event.pump()
         keys = pygame.key.get_pressed()
-        self.direction.x = int(keys[pygame.K_RIGHT]) - int(keys[pygame.K_LEFT])
-        self.direction.y = int(keys[pygame.K_DOWN]) - int(keys[pygame.K_UP])
-        if self.direction.length_squared() > 0:
-            self.direction = self.direction.normalize()
+        dx = int(keys[pygame.K_LEFT]) - int(keys[pygame.K_RIGHT])
+        dy = int(keys[pygame.K_UP]) - int(keys[pygame.K_DOWN])
+        if dx == 0 and dy == 0:
+            self.direction.x = 0
+            self.direction.y = 0
         else:
-            # reset direction vector in-place до (0,0): оновлює x та y, не створюючи нового Vector2
-            self.direction.update(0,0)
+            self.direction.x, self.direction.y = dx, dy
+            self.direction.normalize_ip()
 
-    def move(self, dt) -> None:
+    # Вот ця функція якось вплаває на це. якщо її нема то типу не улітає.
+    def apply_physics(self, dt: float) -> None:
         self.hitbox_rect.x += self.direction.x * self.speed * dt
         self.collision('horizontal')
         self.hitbox_rect.y += self.direction.y * self.speed * dt
         self.collision('vertical')
+        print(self.hitbox_rect.x, self.hitbox_rect.y)
         self.rect.center = self.hitbox_rect.center
 
     def collision(self, direction):
-        for sprite in self.collision_sprites:
+        for sprite in self.collisions:
             if sprite.rect.colliderect(self.hitbox_rect):
                 if direction == 'horizontal':
-                    if self.direction.x > 0:
+                    if self.direction.x < 0:
                         self.hitbox_rect.right = sprite.rect.left
-                    elif self.direction.x < 0:
+                    elif self.direction.x > 0:
                         self.hitbox_rect.left = sprite.rect.right
                 else:  # vertical
-                    if self.direction.y > 0:
+                    if self.direction.y < 0:
                         self.hitbox_rect.bottom = sprite.rect.top
-                    elif self.direction.y < 0:
+                    elif self.direction.y > 0:
                         self.hitbox_rect.top = sprite.rect.bottom
 
-    def animate(self, dt):
-        # set state of animation by movement
+    def update_animation(self, dt: float) -> None:
         if self.direction.x < 0:
-            self.state = 'right'
-        if self.direction.x > 0:
             self.state = 'left'
-        if self.direction.y > 0:
-            self.state = 'down'
-        if self.direction.y > 0:
+        elif self.direction.x > 0:
+            self.state = 'right'
+        elif self.direction.y < 0:
             self.state = 'up'
+        elif self.direction.y > 0:
+            self.state = 'down'
 
-        # load frames
-        frame_list = self.frames[self.state]
-
-        if self.direction.length_squared() > 0:
+        frames_list = self.frames[self.state]
+        if self.direction.length_squared():
             self.frame_index += ANIMATION_SPEED * dt
         else:
             self.frame_index = 0
 
-        # cycle of animation
-        frame = int(self.frame_index) % len(self.frames[self.state])
-        self.image = frame_list[frame]
+        idx = int(self.frame_index) % len(frames_list)
+        self.image = frames_list[idx]
 
-    def update(self, dt):
+    def update(self, dt) -> None:
         self.handle_input()
-        self.move(dt)
-        self.animate(dt)
+        self.apply_physics(dt)
+        self.update_animation(dt)

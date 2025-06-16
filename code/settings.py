@@ -5,6 +5,7 @@ WINDOW_HEIGHT = 720
 
 # tile size in used to precision
 TILE_SIZE = 64
+FPS = 60
 
 ANIMATION_SPEED = 5
 PICKUP_RADIUS = 100

@@ -4,6 +4,8 @@ from pytmx import pytmx
 from settings import PARENT_DIR
 from typing import Dict, Union
 from pytmx.util_pygame import load_pygame
+
+
 class ResourceManager:
     # Словник для кешування завантажених Surface
     _images: Dict[Path, pygame.Surface] = {}
