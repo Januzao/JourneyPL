@@ -5,80 +5,77 @@ from pathlib import Path
 from settings import PICKUP_RADIUS, TILE_SIZE, PARENT_DIR
 from resource_manager import ResourceManager
 
+
 class Item(pygame.sprite.Sprite):
-    def __init__(self, item_id: str, image_path: str, pos: tuple[int,int], groups):
+    def __init__(self, item_id: str, image_path: str, pos: tuple[int, int], groups):
         super().__init__(groups)
         surf = ResourceManager.load_image(image_path)
         self.image = pygame.transform.scale(surf, (TILE_SIZE, TILE_SIZE))
         self.rect = self.image.get_rect(topleft=pos)
         self.id = item_id
 
+
 class ItemManager:
     def __init__(
-        self,
-        tmx,
-        all_sprites: pygame.sprite.Group,
-        item_sprites: pygame.sprite.Group,
-        inventory,
-        player: pygame.sprite.Sprite,
-        collision_sprites: pygame.sprite.Group,
-        reachable: set[tuple[int,int]]
+            self,
+            tmx,
+            all_sprites: pygame.sprite.Group,
+            item_sprites: pygame.sprite.Group,
+            inventory,
+            player: pygame.sprite.Sprite,
+            collision_sprites: pygame.sprite.Group,
+            reachable: set[tuple[int, int]]
     ):
-        self.tmx               = tmx
-        self.all_sprites       = all_sprites
-        self.item_sprites      = item_sprites
-        self.inventory         = inventory
-        self.player            = player
+        self.tmx = tmx
+        self.all_sprites = all_sprites
+        self.item_sprites = item_sprites
+        self.inventory = inventory
+        self.player = player
         self.collision_sprites = collision_sprites
-        self.reachable         = reachable
+        self.reachable = reachable
 
     def spawn_items(self):
-        png_files = sorted((Path(PARENT_DIR) / 'data' / 'graphics' / 'stickers').glob('*.png'))
-        if not png_files:
-            return
+        """Spawn collectible items at positions defined in the Tiled map Objects layer."""
+        # Try to get the 'Objects' layer from the loaded TMX map
+        try:
+            objects_layer = self.tmx.get_layer_by_name('Objects')
+        except KeyError:
+            return  # No Objects layer present
 
-        # Збираємо всі тайли підлоги (Ground + Ground_items)
-        floor = set()
-        for layer_name in ('Ground', 'Ground_items'):
-            for tx, ty, _ in self.tmx.get_layer_by_name(layer_name).tiles():
-                floor.add((tx, ty))
+        # Iterate over all objects in the layer
+        for obj in objects_layer:
+            # Only consider objects that reference a tile (collectible items have gid set)
+            gid = getattr(obj, 'gid', None)
+            if gid is None or gid == 0:
+                continue  # Skip objects without a valid tile gid
 
-        # Відфільтровуємо ті, що не колізійні
-        free = []
-        for tx, ty in floor:
-            rect = pygame.Rect(tx * TILE_SIZE, ty * TILE_SIZE, TILE_SIZE, TILE_SIZE)
-            if not any(col.rect.colliderect(rect) for col in self.collision_sprites):
-                free.append((tx, ty))
+            # Look up the tile's image source using tile properties from the TMX
+            props = self.tmx.tile_properties.get(gid, {})
+            image_source = props.get('source')
+            if not image_source:
+                # Not a collectible tile (or no source defined), skip
+                continue
 
-        if len(free) < len(png_files):
-            print("У вас менше вільних тайлів, ніж стікерів!")
-            # можна спавнити циклічно або пропускати...
+            # Construct the full image path from the source (relative to the map file)
+            image_path_abs = (Path(self.tmx.filename).parent / image_source).resolve()
+            try:
+                # Derive path relative to project root (PARENT_DIR) for ResourceManager
+                rel_path = image_path_abs.relative_to(PARENT_DIR)
+            except ValueError:
+                rel_path = image_path_abs  # If not under project dir, use absolute path
 
-        # Детерміністичне перемішування
-        import hashlib, random
-        name = Path(self.tmx.filename).name
-        seed = int(hashlib.md5(name.encode()).hexdigest()[:8], 16)
-        rnd = random.Random(seed)
-        rnd.shuffle(free)
+            image_path = str(rel_path)
+            item_id = Path(image_path).stem  # e.g., "sticker_1_64x64"
 
-        # Беремо перші N тайлів — N = кількість PNG
-        chosen = free[:len(png_files)]
-
-        # Створюємо спрайти та реєструємо в інвентарі
-        for png, (tx, ty) in zip(png_files, chosen):
-            pos = (tx * TILE_SIZE, ty * TILE_SIZE)
-            path = str(png)
-            Item(png.stem, path, pos, [self.all_sprites, self.item_sprites])
-            surf = ResourceManager.load_image(path)
-            self.inventory.register_item(png.stem, surf)
+            # Spawn the item sprite at the object's position
+            Item(item_id, image_path, (obj.x, obj.y), [self.all_sprites, self.item_sprites])
+            # Register the item in inventory with a grayscale icon initially
+            surf = ResourceManager.load_image(image_path)
+            self.inventory.register_item(item_id, surf)
 
     def check_pickups(self):
+        # Find any item sprites colliding with the player
         hits = pygame.sprite.spritecollide(self.player, self.item_sprites, dokill=True)
         for item in hits:
-            dx = item.rect.centerx - self.player.rect.centerx
-            dy = item.rect.centery  - self.player.rect.centery
-            if dx*dx + dy*dy <= PICKUP_RADIUS**2:
-                self.inventory.pickup_item(item.id)
-            else:
-                # повернути назад, якщо занадто далеко
-                self.item_sprites.add(item)
+            # Mark it as picked in the inventory
+            self.inventory.pickup_item(item.id)

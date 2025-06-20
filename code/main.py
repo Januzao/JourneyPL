@@ -1,6 +1,5 @@
 import pygame
 from pygame.math import Vector2
-from pathlib import Path
 from collections import deque
 
 from settings import WINDOW_WIDTH, WINDOW_HEIGHT, FPS, TILE_SIZE, MAPS_DIR
@@ -12,9 +11,10 @@ from inventory import Inventory
 from item_manager import ItemManager
 from music_manager import MusicManager
 
+
 class Game:
     def __init__(self):
-        # Ініціалізація Pygame та аудіо
+        # Initialize Pygame and audio
         pygame.init()
         pygame.mixer.init()
         self.display = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
@@ -22,26 +22,26 @@ class Game:
         self.clock = pygame.time.Clock()
         self.running = True
 
-        # Фонова музика
+        # Background music
         self.music = MusicManager(volume=0.3)
         self.music.load('A_Walk_Along_the_Gates.mp3')
         self.music.play(loops=-1)
 
-        # Інвентар
+        # Inventory
         self.inventory = Inventory()
 
-        # Групи спрайтів
+        # Sprite groups
         self.all_sprites       = CameraGroup()
         self.collision_sprites = pygame.sprite.Group()
         self.item_sprites      = pygame.sprite.Group()
 
-        # Завантаження карти
+        # Load Tiled map
         self.tmx = ResourceManager.load_tmx(MAPS_DIR / 'map.tmx')
 
-        # Налаштування світу, гравця та reachable-зони
+        # Build world, player, and reachable set
         self.setup()
 
-        # Менеджер предметів
+        # Item manager (loads collectibles from map objects)
         self.item_manager = ItemManager(
             self.tmx,
             self.all_sprites,
@@ -54,32 +54,38 @@ class Game:
         self.item_manager.spawn_items()
 
     def setup(self):
-        # Очищення попередніх спрайтів
+        # Clear any previous sprites
         self.all_sprites.empty()
         self.collision_sprites.empty()
         self.item_sprites.empty()
 
-        # Малюємо землю
+        # Draw ground layers
         for x, y, img in self.tmx.get_layer_by_name('Ground').tiles():
-            WorldSprite((x*TILE_SIZE, y*TILE_SIZE), img, [self.all_sprites], ground=True)
+            WorldSprite((x * TILE_SIZE, y * TILE_SIZE), img, [self.all_sprites], ground=True)
         for x, y, img in self.tmx.get_layer_by_name('Ground_items').tiles():
-            WorldSprite((x*TILE_SIZE, y*TILE_SIZE), img, [self.all_sprites], ground=True)
+            WorldSprite((x * TILE_SIZE, y * TILE_SIZE), img, [self.all_sprites], ground=True)
 
-        # Видимі об’єкти
         for obj in self.tmx.get_layer_by_name('Objects'):
-            WorldSprite(
-                (obj.x, obj.y),
-                f'data/graphics/objects/{obj.name}.png',
-                [self.all_sprites, self.collision_sprites]
-            )
+            # Skip tile-objects entirely — ItemManager.spawn_items() will handle those
+            if getattr(obj, 'gid', 0):
+                continue
 
-        # Колізії
+            # Only spawn named objects (non-collectibles)
+            if obj.name:
+                path = f"data/graphics/objects/{obj.name}.png"
+                WorldSprite(
+                    (obj.x, obj.y),
+                    path,
+                    [self.all_sprites, self.collision_sprites]
+                )
+
+        # Collision shapes
         for obj in self.tmx.get_layer_by_name('Collisions'):
             surf = pygame.Surface((obj.width, obj.height))
-            surf.fill((0,0,0))
+            surf.fill((0, 0, 0))
             WorldSprite((obj.x, obj.y), surf, [self.collision_sprites])
 
-        # Створюємо гравця
+        # Create the player from the 'Entities' layer
         for obj in self.tmx.get_layer_by_name('Entities'):
             if obj.name == 'Player':
                 self.player = Player(
@@ -90,12 +96,12 @@ class Game:
                 self.all_sprites.set_target(self.player)
                 break
 
-        # BFS для reachable-тайлів
+        # Compute reachable floor tiles via BFS
         free = set()
         w, h = self.tmx.width, self.tmx.height
         for tx in range(w):
             for ty in range(h):
-                cell = pygame.Rect(tx*TILE_SIZE, ty*TILE_SIZE, TILE_SIZE, TILE_SIZE)
+                cell = pygame.Rect(tx * TILE_SIZE, ty * TILE_SIZE, TILE_SIZE, TILE_SIZE)
                 if not any(col.rect.colliderect(cell) for col in self.collision_sprites):
                     free.add((tx, ty))
 
@@ -107,8 +113,8 @@ class Game:
         queue = deque([start])
         while queue:
             cx, cy = queue.popleft()
-            for dx, dy in [(1,0),(-1,0),(0,1),(0,-1)]:
-                nb = (cx+dx, cy+dy)
+            for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
+                nb = (cx + dx, cy + dy)
                 if nb in free and nb not in reachable:
                     reachable.add(nb)
                     queue.append(nb)
@@ -123,8 +129,8 @@ class Game:
                 if e.key == pygame.K_i:
                     self.inventory.toggle()
                 elif e.key == pygame.K_r:
+                    # Reset world and respawn items
                     self.setup()
-                    # після reset треба знову спавнити предмети
                     self.item_manager = ItemManager(
                         self.tmx,
                         self.all_sprites,
@@ -137,6 +143,7 @@ class Game:
                     self.item_manager.spawn_items()
 
     def update(self, dt):
+        # Check for pickups and update all sprites
         self.item_manager.check_pickups()
         self.all_sprites.update(dt)
 
@@ -153,6 +160,7 @@ class Game:
             self.update(dt)
             self.render()
         pygame.quit()
+
 
 if __name__ == '__main__':
     Game().run()

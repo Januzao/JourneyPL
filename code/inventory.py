@@ -6,6 +6,7 @@ import numpy as np
 from settings import WINDOW_WIDTH, WINDOW_HEIGHT, TILE_SIZE, UI_DIR, PARENT_DIR
 from resource_manager import ResourceManager
 
+
 class Inventory:
     def __init__(self):
         self.is_open = False
