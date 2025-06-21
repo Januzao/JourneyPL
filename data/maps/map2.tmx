@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="11" height="15" tilewidth="64" tileheight="64" infinite="0" nextlayerid="8" nextobjectid="1">
- <tileset firstgid="1" source="TileSet.tsx"/>
- <tileset firstgid="401" source="TileSet1.tsx"/>
- <layer id="1" name="Tile Layer 1" width="11" height="15">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="11" height="15" tilewidth="64" tileheight="64" infinite="0" nextlayerid="16" nextobjectid="14">
+ <tileset firstgid="1" source="../tilesets/TileSet.tsx"/>
+ <tileset firstgid="401" source="../tilesets/TileSet1.tsx"/>
+ <tileset firstgid="501" source="../tilesets/Collectables.tsx"/>
+ <layer id="1" name="Ground" width="11" height="15">
   <data encoding="csv">
 48,3,3,3,3,3,3,3,3,3,50,
 46,4,4,4,4,4,4,4,4,4,45,
@@ -21,7 +22,7 @@
 86,44,44,44,44,44,44,44,44,44,85
 </data>
  </layer>
- <layer id="2" name="Tile Layer 2" width="11" height="15">
+ <layer id="2" name="Ground_layer1" width="11" height="15">
   <data encoding="csv">
 0,0,0,421,422,423,424,425,0,0,0,
 0,0,0,431,432,433,434,435,0,0,0,
@@ -40,7 +41,12 @@
 0,0,0,0,0,0,0,0,0,0,0
 </data>
  </layer>
- <layer id="4" name="Tile Layer 4" width="11" height="15">
+ <objectgroup id="14" name="Entities">
+  <object id="12" name="Player" x="101.333" y="793.333">
+   <point/>
+  </object>
+ </objectgroup>
+ <layer id="4" name="Ground_layer2" width="11" height="15">
   <data encoding="csv">
 0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,
@@ -59,7 +65,7 @@
 0,0,0,0,0,0,0,0,0,0,0
 </data>
  </layer>
- <layer id="7" name="Tile Layer 5" width="11" height="15">
+ <layer id="7" name="Ground_layer3" width="11" height="15">
   <data encoding="csv">
 0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,
@@ -78,7 +84,7 @@
 0,0,0,0,0,0,0,0,0,0,0
 </data>
  </layer>
- <layer id="3" name="Tile Layer 3" width="11" height="15">
+ <layer id="3" name="Ground_layer4" width="11" height="15">
   <data encoding="csv">
 0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,
@@ -97,4 +103,27 @@
 0,0,0,0,0,0,0,0,0,0,0
 </data>
  </layer>
+ <objectgroup id="12" name="Objects">
+  <object id="9" gid="503" x="69.3333" y="638.667" width="64" height="64"/>
+  <object id="10" gid="504" x="72" y="448" width="64" height="64"/>
+  <object id="11" gid="505" x="502.667" y="437.333" width="64" height="64"/>
+ </objectgroup>
+ <objectgroup id="13" name="Collisions">
+  <object id="1" x="-33.3333" y="-16" width="92" height="964"/>
+  <object id="2" x="34.6667" y="888" width="629.333" height="78.6667"/>
+  <object id="3" x="648" y="-44" width="136" height="1009.33"/>
+  <object id="4" x="-30.6667" y="-84" width="796" height="274.667"/>
+  <object id="5" x="136" y="241.333" width="510.667" height="69.3333"/>
+  <object id="6" x="136" y="433.333" width="512" height="69.3333"/>
+  <object id="7" x="137.333" y="618.667" width="512" height="73.3333"/>
+ </objectgroup>
+ <objectgroup id="15" name="Doors">
+  <object id="13" name="Door" type="Door" x="118.667" y="824" width="148" height="73.3333">
+   <properties>
+    <property name="spawn_x" type="float" value="1477"/>
+    <property name="spawn_y" type="float" value="570"/>
+    <property name="target" value="map.tmx"/>
+   </properties>
+  </object>
+ </objectgroup>
 </map>

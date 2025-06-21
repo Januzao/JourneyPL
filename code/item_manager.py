@@ -67,6 +67,10 @@ class ItemManager:
             image_path = str(rel_path)
             item_id = Path(image_path).stem  # e.g., "sticker_1_64x64"
 
+            existing = self.inventory.items.get(item_id)
+            if existing and existing['picked']:
+                continue
+
             # Spawn the item sprite at the object's position
             Item(item_id, image_path, (obj.x, obj.y), [self.all_sprites, self.item_sprites])
             # Register the item in inventory with a grayscale icon initially
