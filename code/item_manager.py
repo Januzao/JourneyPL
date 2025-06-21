@@ -4,7 +4,7 @@ import hashlib
 from pathlib import Path
 from settings import PICKUP_RADIUS, TILE_SIZE, PARENT_DIR
 from resource_manager import ResourceManager
-
+from inventory import Inventory
 
 class Item(pygame.sprite.Sprite):
     def __init__(self, item_id: str, image_path: str, pos: tuple[int, int], groups):
@@ -44,42 +44,30 @@ class ItemManager:
 
         # Iterate over all objects in the layer
         for obj in objects_layer:
-            # Only consider objects that reference a tile (collectible items have gid set)
             gid = getattr(obj, 'gid', None)
             if gid is None or gid == 0:
-                continue  # Skip objects without a valid tile gid
-
-            # Look up the tile's image source using tile properties from the TMX
+                continue
             props = self.tmx.tile_properties.get(gid, {})
             image_source = props.get('source')
             if not image_source:
-                # Not a collectible tile (or no source defined), skip
                 continue
-
-            # Construct the full image path from the source (relative to the map file)
             image_path_abs = (Path(self.tmx.filename).parent / image_source).resolve()
             try:
-                # Derive path relative to project root (PARENT_DIR) for ResourceManager
                 rel_path = image_path_abs.relative_to(PARENT_DIR)
             except ValueError:
-                rel_path = image_path_abs  # If not under project dir, use absolute path
-
+                rel_path = image_path_abs
             image_path = str(rel_path)
-            item_id = Path(image_path).stem  # e.g., "sticker_1_64x64"
-
-            existing = self.inventory.items.get(item_id)
-            if existing and existing['picked']:
+            raw_id = Path(image_path).stem  # e.g. "sticker_1_64x64"
+            base_id = Inventory.normalize_item_id(raw_id)  # -> "sticker_1"
+            # Skip spawning if this sticker was already collected
+            if base_id in self.inventory.items and self.inventory.items[base_id]['picked']:
                 continue
-
-            # Spawn the item sprite at the object's position
-            Item(item_id, image_path, (obj.x, obj.y), [self.all_sprites, self.item_sprites])
-            # Register the item in inventory with a grayscale icon initially
-            surf = ResourceManager.load_image(image_path)
-            self.inventory.register_item(item_id, surf)
+            # Spawn the item sprite with the normalized ID
+            Item(base_id, image_path, (obj.x, obj.y), [self.all_sprites, self.item_sprites])
 
     def check_pickups(self):
-        # Find any item sprites colliding with the player
+        # Detect any collisions between player and items
         hits = pygame.sprite.spritecollide(self.player, self.item_sprites, dokill=True)
         for item in hits:
-            # Mark it as picked in the inventory
+            # Mark the item as picked in the inventory using the normalized ID
             self.inventory.pickup_item(item.id)

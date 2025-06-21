@@ -2,7 +2,7 @@ import pygame
 from pygame.math import Vector2
 from collections import deque
 
-from settings import WINDOW_WIDTH, WINDOW_HEIGHT, FPS, TILE_SIZE, MAPS_DIR
+from settings import *
 from resource_manager import ResourceManager
 from sprites import WorldSprite
 from player import Player
@@ -10,7 +10,6 @@ from groups import CameraGroup
 from inventory import Inventory
 from item_manager import ItemManager
 from music_manager import MusicManager
-
 
 class Game:
     def __init__(self):
@@ -41,6 +40,14 @@ class Game:
 
         # Build world, player, and reachable set
         self.setup()
+        # ─── Pre-register all sticker slots ───
+        stickers_dir = STICKERS_DIR
+        for png_path in stickers_dir.glob('*.png'):
+            # derive relative path for ResourceManager
+            rel = png_path.relative_to(PARENT_DIR)
+            surf = ResourceManager.load_image(rel)
+            # register each ID (stem of filename), default = gray & picked=False
+            self.inventory.register_item(png_path.stem, surf)
 
         # Spawn collectibles for the first map
         self.item_manager = ItemManager(
@@ -121,8 +128,6 @@ class Game:
             if raw_sx is not None and raw_sy is not None:
                 sx = int(raw_sx)
                 sy = int(raw_sy)
-                # px = sx * TILE_SIZE + TILE_SIZE // 2
-                # py = sy * TILE_SIZE + TILE_SIZE // 2
                 door.spawn_pos = (sx, sy)
             else:
                 door.spawn_pos = None

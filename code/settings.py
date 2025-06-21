@@ -15,6 +15,8 @@ PICKUP_RADIUS = 100
 PARENT_DIR = Path(__file__).parent.parent
 # Tile sprites
 SPRITES_DIR = PARENT_DIR / 'data' / 'graphics' / 'sprites'
+# Sticker sprites
+STICKERS_DIR = PARENT_DIR / 'data' / 'graphics' / 'stickers'
 # Objects folder
 OBJECTS_DIR = PARENT_DIR / 'data' / 'graphics' / 'objects'
 # UI elements

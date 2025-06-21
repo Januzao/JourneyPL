@@ -5,7 +5,7 @@ import pygame.surfarray as surfarray
 import numpy as np
 from settings import WINDOW_WIDTH, WINDOW_HEIGHT, TILE_SIZE, UI_DIR, PARENT_DIR
 from resource_manager import ResourceManager
-
+import re  # Import regex module for ID normalization
 
 class Inventory:
     def __init__(self):
@@ -29,17 +29,24 @@ class Inventory:
         self.is_open = not self.is_open
         self.sound.play()
 
+    @staticmethod
+    def normalize_item_id(item_id: str) -> str:
+        """Strip trailing size suffix (e.g. '_64x64') from an item ID."""
+        return re.sub(r'_\d+x\d+$', '', item_id)
+
     def register_item(self, item_id: str, image: pygame.Surface):
-        """Додати іконку предмета (спочатку в сірому відтінку)."""
-        if item_id in self.items:
+        """Add an item icon to the inventory (initially gray, not picked)."""
+        base_id = Inventory.normalize_item_id(item_id)
+        if base_id in self.items:
             return
         gray = self._grayscale_surface(image)
-        self.items[item_id] = {'orig': image, 'gray': gray, 'picked': False}
+        self.items[base_id] = {'orig': image, 'gray': gray, 'picked': False}
 
     def pickup_item(self, item_id: str):
-        """Позначити предмет як підібраний (кольорова іконка)."""
-        if item_id in self.items:
-            self.items[item_id]['picked'] = True
+        """Mark an item as picked (show its colored icon)."""
+        base_id = Inventory.normalize_item_id(item_id)
+        if base_id in self.items:
+            self.items[base_id]['picked'] = True
 
     def _grayscale_surface(self, surface: pygame.Surface) -> pygame.Surface:
         """Повернути копію surface в градаціях сірого."""
