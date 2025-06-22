@@ -10,7 +10,7 @@ import re  # Import regex module for ID normalization
 class Inventory:
     def __init__(self):
         self.is_open = False
-        audio_path = PARENT_DIR / 'data' / 'audio' / 'inventory_open.mp3'
+        audio_path = PARENT_DIR / 'data' / 'audio' / 'sounds' / 'inventory_open.mp3'
         self.sound = pygame.mixer.Sound(str(audio_path))
 
         try:

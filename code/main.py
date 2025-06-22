@@ -1,8 +1,11 @@
+# main.py
+
 import pygame
 from pygame.math import Vector2
+from pathlib import Path
 from collections import deque
 
-from settings import *
+from settings import WINDOW_WIDTH, WINDOW_HEIGHT, FPS, TILE_SIZE, MAPS_DIR, STICKERS_DIR, PARENT_DIR
 from resource_manager import ResourceManager
 from sprites import WorldSprite
 from player import Player
@@ -11,52 +14,55 @@ from inventory import Inventory
 from item_manager import ItemManager
 from music_manager import MusicManager
 from room_notifier import RoomNotifier
-
+from menu import Menu
 
 class Game:
     def __init__(self):
-        # Initialize Pygame and audio
+        # Ініціалізація Pygame та аудіо
         pygame.init()
         pygame.mixer.init()
         self.display = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-        # Notifier баннеров комнат
-        self.room_notifier = RoomNotifier(self.display)
-        # Показать баннер при старте (если нужно)
-        self.room_notifier.show(Path(MAPS_DIR / 'corridor.tmx').stem)
-
         pygame.display.set_caption("JourneyPL")
         self.clock = pygame.time.Clock()
         self.running = True
 
-        # Background music
+        # Room notifier
+        self.room_notifier = RoomNotifier(self.display)
+        initial_tmx = MAPS_DIR / 'corridor.tmx'
+        self.room_notifier.show(Path(initial_tmx).stem)
+
+        # Фоновий трек
         self.music = MusicManager(volume=0.3)
-        self.music.load('A_Walk_Along_the_Gates.mp3')
+        self.music.load('music/A_Walk_Along_the_Gates.mp3')
         self.music.play(loops=-1)
 
-        # Inventory
+        # Інвентар
         self.inventory = Inventory()
 
-        # Sprite groups
-        self.all_sprites = CameraGroup()
-        self.collision_sprites = pygame.sprite.Group()
-        self.item_sprites = pygame.sprite.Group()
-        self.door_sprites = pygame.sprite.Group()
+        # Меню паузи
+        font_choices = {
+            'title': str(Path(PARENT_DIR) / 'data' / 'fonts' / 'ANDYB.TTF'),
+            'item':  str(Path(PARENT_DIR) / 'data' / 'fonts' / 'ANDYB.TTF'),
+        }
+        self.menu = Menu(self.display, font_choices, border_thickness=2)
 
-        # Load the first map (corridor.tmx)
-        self.tmx = ResourceManager.load_tmx(MAPS_DIR / 'corridor.tmx')
+        # Спрайт‐групи
+        self.all_sprites      = CameraGroup()
+        self.collision_sprites= pygame.sprite.Group()
+        self.item_sprites     = pygame.sprite.Group()
+        self.door_sprites     = pygame.sprite.Group()
 
-        # Build world, player, and reachable set
+        # Завантажити карту та побудувати світ
+        self.tmx = ResourceManager.load_tmx(initial_tmx)
         self.setup()
-        # ─── Pre-register all sticker slots ───
-        stickers_dir = STICKERS_DIR
-        for png_path in stickers_dir.glob('*.png'):
-            # derive relative path for ResourceManager
-            rel = png_path.relative_to(PARENT_DIR)
-            surf = ResourceManager.load_image(rel)
-            # register each ID (stem of filename), default = gray & picked=False
-            self.inventory.register_item(png_path.stem, surf)
 
-        # Spawn collectibles for the first map
+        # Зареєструвати стікери в інвентарі
+        for png in STICKERS_DIR.glob('*.png'):
+            rel = png.relative_to(PARENT_DIR)
+            surf = ResourceManager.load_image(rel)
+            self.inventory.register_item(png.stem, surf)
+
+        # Менеджер предметів
         self.item_manager = ItemManager(
             self.tmx,
             self.all_sprites,
@@ -69,25 +75,18 @@ class Game:
         self.item_manager.spawn_items()
 
     def setup(self):
-        # Clear any previous sprites
+        # Очистити всі групи
         self.all_sprites.empty()
         self.collision_sprites.empty()
         self.item_sprites.empty()
         self.door_sprites.empty()
 
-        # Draw ground layers
-        for x, y, img in self.tmx.get_layer_by_name('Ground').tiles():
-            WorldSprite((x * TILE_SIZE, y * TILE_SIZE), img, [self.all_sprites], ground=True)
-        for x, y, img in self.tmx.get_layer_by_name('Ground_layer1').tiles():
-            WorldSprite((x * TILE_SIZE, y * TILE_SIZE), img, [self.all_sprites], ground=True)
-        for x, y, img in self.tmx.get_layer_by_name('Ground_layer2').tiles():
-            WorldSprite((x * TILE_SIZE, y * TILE_SIZE), img, [self.all_sprites], ground=True)
-        for x, y, img in self.tmx.get_layer_by_name('Ground_layer3').tiles():
-            WorldSprite((x * TILE_SIZE, y * TILE_SIZE), img, [self.all_sprites], ground=True)
-        for x, y, img in self.tmx.get_layer_by_name('Ground_layer4').tiles():
-            WorldSprite((x * TILE_SIZE, y * TILE_SIZE), img, [self.all_sprites], ground=True)
+        # Малюємо шари землі
+        for layer in ['Ground', 'Ground_layer1','Ground_layer2','Ground_layer3','Ground_layer4']:
+            for x, y, img in self.tmx.get_layer_by_name(layer).tiles():
+                WorldSprite((x*TILE_SIZE, y*TILE_SIZE), img, [self.all_sprites], ground=True)
 
-        # Create the player from the 'Entities' layer
+        # Створюємо гравця
         for obj in self.tmx.get_layer_by_name('Entities'):
             if obj.name == 'Player':
                 self.player = Player(
@@ -98,111 +97,84 @@ class Game:
                 self.all_sprites.set_target(self.player)
                 break
 
-        # Non-collectible Objects
+        # Інші об’єкти
         for obj in self.tmx.get_layer_by_name('Objects'):
             if getattr(obj, 'gid', 0):
-                # skip tile-objects here
                 continue
             if obj.name:
-                path = f"data/graphics/objects/{obj.name}.png"
-                WorldSprite(
-                    (obj.x, obj.y),
-                    path,
-                    [self.all_sprites, self.collision_sprites]
-                )
+                path = f'data/graphics/objects/{obj.name}.png'
+                WorldSprite((obj.x, obj.y), path, [self.all_sprites, self.collision_sprites])
 
-        # Collision shapes
+        # Колізійні блоки
         for obj in self.tmx.get_layer_by_name('Collisions'):
             surf = pygame.Surface((obj.width, obj.height))
-            surf.fill((0, 0, 0))
+            surf.fill((0,0,0))
             WorldSprite((obj.x, obj.y), surf, [self.collision_sprites])
 
-        # Doors (invisible triggers)
+        # Двері
         for obj in self.tmx.get_layer_by_name('Doors'):
             if obj.type != 'Door':
                 continue
-
             door = pygame.sprite.Sprite(self.all_sprites, self.door_sprites)
             door.image = pygame.Surface((obj.width, obj.height), pygame.SRCALPHA)
             door.rect = pygame.Rect(obj.x, obj.y, obj.width, obj.height)
-
-            # Store target map
             door.target_map = obj.properties.get('target')
+            sx = obj.properties.get('spawn_x')
+            sy = obj.properties.get('spawn_y')
+            door.spawn_pos = (int(sx), int(sy)) if sx is not None and sy is not None else None
 
-            # Cast properties to int before doing math
-            raw_sx = obj.properties.get('spawn_x')
-            raw_sy = obj.properties.get('spawn_y')
-            if raw_sx is not None and raw_sy is not None:
-                sx = int(raw_sx)
-                sy = int(raw_sy)
-                door.spawn_pos = (sx, sy)
-            else:
-                door.spawn_pos = None
-
-        # Compute reachable floor tiles via BFS
+        # Обчислюємо досяжні клітини
         free = set()
         w, h = self.tmx.width, self.tmx.height
         for tx in range(w):
             for ty in range(h):
-                cell = pygame.Rect(tx * TILE_SIZE, ty * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+                cell = pygame.Rect(tx*TILE_SIZE, ty*TILE_SIZE, TILE_SIZE, TILE_SIZE)
                 if not any(col.rect.colliderect(cell) for col in self.collision_sprites):
                     free.add((tx, ty))
-
-        start = (
-            self.player.rect.centerx // TILE_SIZE,
-            self.player.rect.centery // TILE_SIZE
-        )
+        start = (self.player.rect.centerx//TILE_SIZE, self.player.rect.centery//TILE_SIZE)
         reachable = {start}
         queue = deque([start])
         while queue:
             cx, cy = queue.popleft()
-            for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
-                nb = (cx + dx, cy + dy)
+            for dx, dy in [(1,0),(-1,0),(0,1),(0,-1)]:
+                nb = (cx+dx, cy+dy)
                 if nb in free and nb not in reachable:
                     reachable.add(nb)
                     queue.append(nb)
-
         self.reachable = reachable
 
-    def change_level(self, map_filename: str, spawn_pos: tuple[int, int] | None):
-        # 1) Load the next map
-        self.tmx = ResourceManager.load_tmx(MAPS_DIR / map_filename)
-        # выделяем имя комнаты без расширения, например "e-109.tmx" → "e-109"
-        room_name = Path(map_filename).stem
-        self.room_notifier.show(room_name)
-        # 2) Rebuild world & player & doors & collisions
+    def change_level(self, map_file, spawn_pos=None):
+        self.tmx = ResourceManager.load_tmx(MAPS_DIR / map_file)
+        room = Path(map_file).stem
+        self.room_notifier.show(room)
         self.setup()
-        # 3) Reposition the player if spawn_pos given
         if spawn_pos:
             self.player.hitbox_rect.center = spawn_pos
-            self.player.rect.center = spawn_pos
-        # 4) Re‐target camera
+            self.player.rect.center       = spawn_pos
         self.all_sprites.set_target(self.player)
-        # 5) Respawn collectibles
         self.item_manager = ItemManager(
-            self.tmx,
-            self.all_sprites,
-            self.item_sprites,
-            self.inventory,
-            self.player,
-            self.collision_sprites,
+            self.tmx, self.all_sprites, self.item_sprites,
+            self.inventory, self.player, self.collision_sprites,
             self.reachable
         )
         self.item_manager.spawn_items()
-        room_name = Path(map_filename).stem
-        self.room_notifier.show(room_name)
+        self.room_notifier.show(room)
 
     def handle_events(self):
         for e in pygame.event.get():
             if e.type == pygame.QUIT:
                 self.running = False
+            elif e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
+                self.menu.toggle()
 
-            elif e.type == pygame.KEYDOWN:
-                if e.key == pygame.K_i:
+            # Головна логіка лише коли меню закрито
+            if not self.menu.is_open:
+                if e.type == pygame.KEYDOWN and e.key == pygame.K_i:
                     self.inventory.toggle()
-
-                elif e.key == pygame.K_e:
-                    # Check for door collision
+                elif e.type == pygame.KEYDOWN and e.key == pygame.K_r:
+                    self.setup()
+                    self.item_manager.spawn_items()
+                elif e.type == pygame.KEYDOWN and e.key == pygame.K_e:
                     hits = pygame.sprite.spritecollide(
                         self.player,
                         self.door_sprites,
@@ -213,8 +185,13 @@ class Game:
                         door = hits[0]
                         self.change_level(door.target_map, door.spawn_pos)
 
+            # Передаємо всі події в меню (для Sound & Graphic Settings)
+            self.menu.handle_event(e)
+
     def update(self, dt):
-        # Pickup items, update sprites
+        # Якщо меню відкрито — пауза
+        if self.menu.is_open:
+            return
         self.item_manager.check_pickups()
         self.all_sprites.update(dt)
         self.room_notifier.update()
@@ -222,9 +199,9 @@ class Game:
     def render(self):
         self.display.fill('black')
         self.all_sprites.draw()
-        # после отрисовки спрайтов и инвентаря
         self.room_notifier.draw()
         self.inventory.render(self.display)
+        self.menu.render()
         pygame.display.flip()
 
     def run(self):
@@ -235,6 +212,5 @@ class Game:
             self.render()
         pygame.quit()
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     Game().run()

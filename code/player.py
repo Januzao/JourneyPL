@@ -31,9 +31,11 @@ class Player(pygame.sprite.Sprite):
     def handle_input(self):
         pygame.event.pump()
         keys = pygame.key.get_pressed()
-        # Виправлена інверсія
-        dx = int(keys[pygame.K_RIGHT]) - int(keys[pygame.K_LEFT])
-        dy = int(keys[pygame.K_DOWN])  - int(keys[pygame.K_UP])
+
+        # Використовуємо WASD
+        dx = int(keys[pygame.K_d]) - int(keys[pygame.K_a])
+        dy = int(keys[pygame.K_s]) - int(keys[pygame.K_w])
+
         self.direction.x = dx
         self.direction.y = dy
         if self.direction.length_squared():

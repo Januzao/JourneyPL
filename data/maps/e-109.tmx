@@ -121,7 +121,7 @@
   <object id="13" name="Door" type="Door" x="118.667" y="824" width="148" height="73.3333">
    <properties>
     <property name="spawn_x" type="float" value="1477"/>
-    <property name="spawn_y" type="float" value="420"/>
+    <property name="spawn_y" type="float" value="500"/>
     <property name="target" value="corridor.tmx"/>
    </properties>
   </object>
