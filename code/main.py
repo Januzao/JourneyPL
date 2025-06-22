@@ -10,6 +10,8 @@ from groups import CameraGroup
 from inventory import Inventory
 from item_manager import ItemManager
 from music_manager import MusicManager
+from room_notifier import RoomNotifier
+
 
 class Game:
     def __init__(self):
@@ -17,6 +19,11 @@ class Game:
         pygame.init()
         pygame.mixer.init()
         self.display = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+        # Notifier баннеров комнат
+        self.room_notifier = RoomNotifier(self.display)
+        # Показать баннер при старте (если нужно)
+        self.room_notifier.show(Path(MAPS_DIR / 'corridor.tmx').stem)
+
         pygame.display.set_caption("JourneyPL")
         self.clock = pygame.time.Clock()
         self.running = True
@@ -35,8 +42,8 @@ class Game:
         self.item_sprites = pygame.sprite.Group()
         self.door_sprites = pygame.sprite.Group()
 
-        # Load the first map (map.tmx)
-        self.tmx = ResourceManager.load_tmx(MAPS_DIR / 'map.tmx')
+        # Load the first map (corridor.tmx)
+        self.tmx = ResourceManager.load_tmx(MAPS_DIR / 'corridor.tmx')
 
         # Build world, player, and reachable set
         self.setup()
@@ -160,6 +167,9 @@ class Game:
     def change_level(self, map_filename: str, spawn_pos: tuple[int, int] | None):
         # 1) Load the next map
         self.tmx = ResourceManager.load_tmx(MAPS_DIR / map_filename)
+        # выделяем имя комнаты без расширения, например "e-109.tmx" → "e-109"
+        room_name = Path(map_filename).stem
+        self.room_notifier.show(room_name)
         # 2) Rebuild world & player & doors & collisions
         self.setup()
         # 3) Reposition the player if spawn_pos given
@@ -179,6 +189,8 @@ class Game:
             self.reachable
         )
         self.item_manager.spawn_items()
+        room_name = Path(map_filename).stem
+        self.room_notifier.show(room_name)
 
     def handle_events(self):
         for e in pygame.event.get():
@@ -205,10 +217,13 @@ class Game:
         # Pickup items, update sprites
         self.item_manager.check_pickups()
         self.all_sprites.update(dt)
+        self.room_notifier.update()
 
     def render(self):
         self.display.fill('black')
         self.all_sprites.draw()
+        # после отрисовки спрайтов и инвентаря
+        self.room_notifier.draw()
         self.inventory.render(self.display)
         pygame.display.flip()
 

@@ -131,8 +131,8 @@
   <object id="35" name="Door" type="Door" x="1397.33" y="412" width="164" height="84">
    <properties>
     <property name="spawn_x" type="float" value="118"/>
-    <property name="spawn_y" type="float" value="570"/>
-    <property name="target" value="map2.tmx"/>
+    <property name="spawn_y" type="float" value="824"/>
+    <property name="target" value="e-109.tmx"/>
    </properties>
   </object>
  </objectgroup>
