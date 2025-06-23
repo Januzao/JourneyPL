@@ -1,98 +1,189 @@
 # inventory.py
 
+import math
 import pygame
 import pygame.surfarray as surfarray
 import numpy as np
-from settings import WINDOW_WIDTH, WINDOW_HEIGHT, TILE_SIZE, UI_DIR, PARENT_DIR
+import re
+from settings import *
 from resource_manager import ResourceManager
-import re  # Import regex module for ID normalization
+
+# === Sticker slot positions (adjust as needed) ===
+sticker_1_x, sticker_1_y = 390, 160
+sticker_2_x, sticker_2_y = 790, 160
+sticker_3_x, sticker_3_y = 500, 250
+sticker_4_x, sticker_4_y = 660, 240
+sticker_5_x, sticker_5_y = 390, 360
+sticker_6_x, sticker_6_y = 790, 360
+sticker_7_x, sticker_7_y = 500, 440
+sticker_8_x, sticker_8_y = 675, 440
+
+
+class InventoryItem:
+    """Element of the inventory: holds color/gray image and picked state."""
+
+    def __init__(self, item_id: str, image: pygame.Surface):
+        base_id = Inventory.normalize_item_id(item_id)
+        self.id = base_id
+        self.orig_image = image
+        self.gray_image = self._create_gray(image)
+        self.picked = False
+
+    @staticmethod
+    def _create_gray(image: pygame.Surface) -> pygame.Surface:
+        """Create a grayscale copy of the image."""
+        arr = surfarray.array3d(image)
+        lum = (
+            arr[:, :, 0] * 0.3 +
+            arr[:, :, 1] * 0.59 +
+            arr[:, :, 2] * 0.11
+        ).astype(np.uint8)
+        gray_arr = np.stack((lum,) * 3, axis=2)
+        gray_surf = surfarray.make_surface(gray_arr)
+        return gray_surf.convert_alpha()
+
+    def get_display_image(self) -> pygame.Surface:
+        """Return colored image if picked, otherwise gray."""
+        return self.orig_image if self.picked else self.gray_image
+
 
 class Inventory:
-    def __init__(self):
-        self.is_open = False
-        audio_path = PARENT_DIR / 'data' / 'audio' / 'inventory_open.mp3'
-        self.sound = pygame.mixer.Sound(str(audio_path))
+    """Inventory: stores InventoryItems, handles pagination and rendering."""
 
-        try:
-            self.bg = ResourceManager.load_image(UI_DIR / 'inventory_book.png')
-            self.bg = pygame.transform.scale(self.bg, (600, 500))
-        except Exception:
-            self.bg = pygame.Surface((600, 500))
-            self.bg.fill((50, 50, 50))
+    ITEMS_PER_PAGE = 8
+    ROTATION_ANGLE = 45
+    ARROW_SIZE = 32
+
+    def __init__(self):
+        # Load and scale background
+        self.bg = ResourceManager.load_image(UI_DIR / 'inventory_book.png')
+        self.bg = pygame.transform.scale(self.bg, (600, 500))
         self.bg_rect = self.bg.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2))
 
-        # id → {'orig': Surface, 'gray': Surface, 'picked': bool}
-        self.items: dict[str, dict] = {}
+        # State
+        self.is_open = False
+        self.items: dict[str, InventoryItem] = {}
+        self.items_order: list[str] = []
+        self.current_page = 0
+
+        # Open/close sound
+        audio_path = AUDIO_DIR / 'inventory_open.mp3'
+        self.sound = pygame.mixer.Sound(str(audio_path))
+
+        # Arrow buttons
+        self.btn_prev = ResourceManager.load_image(UI_DIR / 'arrow_book_left.png').convert_alpha()
+        self.btn_next = ResourceManager.load_image(UI_DIR / 'arrow_book_right.png').convert_alpha()
+        self.btn_prev = pygame.transform.scale(self.btn_prev, (self.ARROW_SIZE, self.ARROW_SIZE))
+        self.btn_next = pygame.transform.scale(self.btn_next, (self.ARROW_SIZE, self.ARROW_SIZE))
+
+        # Position arrows at book corners
+        margin = 20
+        self.btn_prev_rect = self.btn_prev.get_rect(
+            bottomleft=(self.bg_rect.left + margin, self.bg_rect.bottom - margin)
+        )
+        self.btn_next_rect = self.btn_next.get_rect(
+            bottomright=(self.bg_rect.right - margin, self.bg_rect.bottom - margin)
+        )
 
     def toggle(self):
-        """Відкрити/закрити інвентар з програванням звуку."""
+        """Open or close the inventory, play sound."""
         self.is_open = not self.is_open
         self.sound.play()
 
     @staticmethod
     def normalize_item_id(item_id: str) -> str:
-        """Strip trailing size suffix (e.g. '_64x64') from an item ID."""
+        """Strip size suffix (_WIDTHxHEIGHT) from item_id."""
         return re.sub(r'_\d+x\d+$', '', item_id)
 
     def register_item(self, item_id: str, image: pygame.Surface):
-        """Add an item icon to the inventory (initially gray, not picked)."""
+        """Add a new slot (gray by default) for this item_id."""
         base_id = Inventory.normalize_item_id(item_id)
         if base_id in self.items:
             return
-        gray = self._grayscale_surface(image)
-        self.items[base_id] = {'orig': image, 'gray': gray, 'picked': False}
+        item = InventoryItem(base_id, image)
+        self.items[base_id] = item
+        self.items_order.append(base_id)
 
     def pickup_item(self, item_id: str):
-        """Mark an item as picked (show its colored icon)."""
+        """Mark an item as picked (colorful) when collected."""
         base_id = Inventory.normalize_item_id(item_id)
         if base_id in self.items:
-            self.items[base_id]['picked'] = True
+            self.items[base_id].picked = True
 
-    def _grayscale_surface(self, surface: pygame.Surface) -> pygame.Surface:
-        """Повернути копію surface в градаціях сірого."""
-        arr = surfarray.array3d(surface)
-        lum = (arr[:, :, 0] * 0.3 +
-               arr[:, :, 1] * 0.59 +
-               arr[:, :, 2] * 0.11).astype(np.uint8)
-        gray_arr = np.stack((lum,) * 3, axis=2)
-        gray_surf = surfarray.make_surface(gray_arr)
-        return gray_surf.convert_alpha()
+    @property
+    def num_pages(self) -> int:
+        """Total number of pages needed."""
+        return math.ceil(len(self.items_order) / Inventory.ITEMS_PER_PAGE)
+
+    def next_page(self):
+        """Go to next page, if any."""
+        if self.current_page < self.num_pages - 1:
+            self.current_page += 1
+
+    def prev_page(self):
+        """Go to previous page, if any."""
+        if self.current_page > 0:
+            self.current_page -= 1
+
+    def handle_event(self, event: pygame.event.Event):
+        """Respond to left-clicks on arrow buttons to flip pages."""
+        if not self.is_open:
+            return
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if self.num_pages > 1:
+                if self.btn_prev_rect.collidepoint(event.pos):
+                    self.prev_page()
+                elif self.btn_next_rect.collidepoint(event.pos):
+                    self.next_page()
 
     def render(self, display: pygame.Surface):
-        """Намалювати вміст інвентаря, якщо він відкритий."""
+        """Draw the inventory UI (background, arrows, and items at fixed slots)."""
         if not self.is_open:
             return
 
-        # Фон книжки
+        # Draw background
         display.blit(self.bg, self.bg_rect)
 
-        # Параметри іконок
-        icon_size = int(TILE_SIZE * 1.5)  # 150% від TILE_SIZE
-        vertical_spacing = icon_size + 30
+        # Draw arrows if multiple pages
+        if self.num_pages > 1:
+            display.blit(self.btn_prev, self.btn_prev_rect)
+            display.blit(self.btn_next, self.btn_next_rect)
 
-        # Відступи для лівої та правої колонки
-        left_x = self.bg_rect.left + 100
-        left_y = self.bg_rect.top + 80
-        right_x = self.bg_rect.left + self.bg_rect.width - icon_size - 100
-        right_y = self.bg_rect.top + 120
+        # Determine which items to show on this page
+        icon_size = TILE_SIZE * 1.5  # size for each sticker icon
+        start = self.current_page * Inventory.ITEMS_PER_PAGE
+        page_ids = self.items_order[start : start + Inventory.ITEMS_PER_PAGE]
 
-        # Відобразити до 10 предметів: парно ліво/право
-        for idx, (item_id, data) in enumerate(self.items.items()):
-            if idx >= 10:
+        # Predefined positions for up to 8 slots
+        positions = [
+            (sticker_1_x, sticker_1_y),
+            (sticker_2_x, sticker_2_y),
+            (sticker_3_x, sticker_3_y),
+            (sticker_4_x, sticker_4_y),
+            (sticker_5_x, sticker_5_y),
+            (sticker_6_x, sticker_6_y),
+            (sticker_7_x, sticker_7_y),
+            (sticker_8_x, sticker_8_y),
+        ]
+
+        angles = [24, -12, -34, 22, -40, -35, 25, -35]
+
+        for idx, item_id in enumerate(page_ids):
+            if idx >= len(positions):
                 break
 
-            base_img = data['orig'] if data['picked'] else data['gray']
-            icon = pygame.transform.scale(base_img, (icon_size, icon_size))
+            # 1) Scale the image
+            orig = self.items[item_id].get_display_image()
+            img = pygame.transform.scale(orig, (icon_size, icon_size))
 
-            if idx % 2 == 0:
-                # парні: ліворуч, +45°
-                icon = pygame.transform.rotate(icon, 45)
-                x = left_x
-                y = left_y + (idx // 2) * vertical_spacing
-            else:
-                # непарні: праворуч, -45°
-                icon = pygame.transform.rotate(icon, -45)
-                x = right_x
-                y = right_y + (idx // 2) * vertical_spacing
+            # 2) Rotate around its center
+            angle = angles[idx % len(angles)]
+            rotated_img = pygame.transform.rotate(img, angle)
 
-            display.blit(icon, (x, y))
+            # 3) Compute a rect so that the rotated image is centered on the slot
+            x, y = positions[idx]
+            slot_center = (x + icon_size // 2, y + icon_size // 2)
+            rotated_rect = rotated_img.get_rect(center=slot_center)
+
+            # 4) Blit the rotated image
+            display.blit(rotated_img, rotated_rect.topleft)

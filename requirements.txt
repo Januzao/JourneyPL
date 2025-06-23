@@ -1,3 +1,4 @@
 pygame>=2.0.0
 pytmx>=3.0.0
 python-decouple>=3.4  # potional for conf .env
+numpy~=2.3.0

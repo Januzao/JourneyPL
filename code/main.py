@@ -193,16 +193,20 @@ class Game:
         self.room_notifier.show(room_name)
 
     def handle_events(self):
+        """Process all incoming Pygame events each frame."""
         for e in pygame.event.get():
+            # 1) Quit the game
             if e.type == pygame.QUIT:
                 self.running = False
 
-            elif e.type == pygame.KEYDOWN:
+            # 2) Keyboard controls
+            if e.type == pygame.KEYDOWN:
                 if e.key == pygame.K_i:
+                    # Open/close inventory
                     self.inventory.toggle()
 
                 elif e.key == pygame.K_e:
-                    # Check for door collision
+                    # Interact with doors
                     hits = pygame.sprite.spritecollide(
                         self.player,
                         self.door_sprites,
@@ -212,6 +216,10 @@ class Game:
                     if hits:
                         door = hits[0]
                         self.change_level(door.target_map, door.spawn_pos)
+
+            # 3) Forward mouse button downs to inventory
+            if e.type == pygame.MOUSEBUTTONDOWN:
+                self.inventory.handle_event(e)
 
     def update(self, dt):
         # Pickup items, update sprites

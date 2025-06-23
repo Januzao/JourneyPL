@@ -110,7 +110,7 @@
  </objectgroup>
  <objectgroup id="13" name="Collisions">
   <object id="1" x="-33.3333" y="-16" width="92" height="964"/>
-  <object id="2" x="34.6667" y="888" width="629.333" height="78.6667"/>
+  <object id="2" x="33.5562" y="875.785" width="629.333" height="78.6667"/>
   <object id="3" x="648" y="-44" width="136" height="1009.33"/>
   <object id="4" x="-30.6667" y="-84" width="796" height="274.667"/>
   <object id="5" x="136" y="241.333" width="510.667" height="69.3333"/>
@@ -118,10 +118,10 @@
   <object id="7" x="137.333" y="618.667" width="512" height="73.3333"/>
  </objectgroup>
  <objectgroup id="15" name="Doors">
-  <object id="13" name="Door" type="Door" x="118.667" y="824" width="148" height="73.3333">
+  <object id="13" name="Door" type="Door" x="107.562" y="828.442" width="148" height="73.3333">
    <properties>
     <property name="spawn_x" type="float" value="1477"/>
-    <property name="spawn_y" type="float" value="420"/>
+    <property name="spawn_y" type="float" value="500"/>
     <property name="target" value="corridor.tmx"/>
    </properties>
   </object>

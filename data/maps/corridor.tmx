@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="67" height="20" tilewidth="64" tileheight="64" infinite="0" nextlayerid="12" nextobjectid="36">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="67" height="20" tilewidth="64" tileheight="64" infinite="0" nextlayerid="12" nextobjectid="42">
  <tileset firstgid="1" source="../tilesets/TileSet.tsx"/>
  <tileset firstgid="401" source="../tilesets/TileSet1.tsx"/>
  <tileset firstgid="501" source="../tilesets/Collectables.tsx"/>
@@ -126,24 +126,27 @@
  <objectgroup id="5" name="Objects">
   <object id="32" gid="501" x="1622.67" y="718.667" width="64" height="64"/>
   <object id="33" gid="502" x="1246.67" y="604" width="64" height="64"/>
+  <object id="39" gid="506" x="1684" y="614" width="64" height="64"/>
+  <object id="40" gid="507" x="1582" y="934" width="64" height="64"/>
+  <object id="41" gid="508" x="1828" y="862" width="64" height="64"/>
  </objectgroup>
  <objectgroup id="11" name="Doors">
   <object id="35" name="Door" type="Door" x="1397.33" y="412" width="164" height="84">
    <properties>
-    <property name="spawn_x" type="float" value="118"/>
+    <property name="spawn_x" type="float" value="180"/>
     <property name="spawn_y" type="float" value="824"/>
     <property name="target" value="e-109.tmx"/>
    </properties>
   </object>
  </objectgroup>
  <objectgroup id="6" name="Collisions">
-  <object id="1" x="126.333" y="133.303" width="115.152" height="1130.3"/>
+  <object id="1" x="138.333" y="135.303" width="115.152" height="1130.3"/>
   <object id="2" x="249.576" y="1188.48" width="1748.48" height="87.8788"/>
   <object id="3" x="783.364" y="805.333" width="118.182" height="403.03"/>
   <object id="4" x="1292.82" y="806.061" width="121.212" height="421.212"/>
   <object id="5" x="894.667" y="1153.58" width="398.425" height="72.7273"/>
-  <object id="6" x="1987.27" y="867.394" width="2051.52" height="348.485"/>
-  <object id="7" x="4045.81" y="112.242" width="218.182" height="1018.18"/>
+  <object id="6" x="1985.27" y="893.394" width="2051.52" height="348.485"/>
+  <object id="7" x="4035.81" y="112.242" width="218.182" height="1018.18"/>
   <object id="8" x="246.545" y="33.8788" width="3834.79" height="379.394"/>
   <object id="9" x="833.333" y="149.333" width="509.333" height="340"/>
   <object id="10" x="255" y="301.667" width="63" height="168"/>
