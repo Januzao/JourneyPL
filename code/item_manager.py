@@ -1,3 +1,5 @@
+# item_manager.py
+
 import pygame
 import random
 import hashlib
@@ -5,6 +7,7 @@ from pathlib import Path
 from settings import PICKUP_RADIUS, TILE_SIZE, PARENT_DIR
 from resource_manager import ResourceManager
 from inventory import Inventory
+
 
 class Item(pygame.sprite.Sprite):
     def __init__(self, item_id: str, image_path: str, pos: tuple[int, int], groups):
@@ -21,7 +24,7 @@ class ItemManager:
             tmx,
             all_sprites: pygame.sprite.Group,
             item_sprites: pygame.sprite.Group,
-            inventory,
+            inventory: Inventory,
             player: pygame.sprite.Sprite,
             collision_sprites: pygame.sprite.Group,
             reachable: set[tuple[int, int]]
@@ -34,18 +37,23 @@ class ItemManager:
         self.collision_sprites = collision_sprites
         self.reachable = reachable
 
+        # === Звук підбирання предметів ===
+        pickup_path = Path(PARENT_DIR) / 'data' / 'audio' / 'sounds' / 'item_pick_up.mp3'
+        try:
+            self.pickup_sound = pygame.mixer.Sound(str(pickup_path))
+        except Exception:
+            self.pickup_sound = None
+
     def spawn_items(self):
         """Spawn collectible items at positions defined in the Tiled map Objects layer."""
-        # Try to get the 'Objects' layer from the loaded TMX map
         try:
             objects_layer = self.tmx.get_layer_by_name('Objects')
         except KeyError:
-            return  # No Objects layer present
+            return  # якщо шару немає
 
-        # Iterate over all objects in the layer
         for obj in objects_layer:
-            gid = getattr(obj, 'gid', None)
-            if gid is None or gid == 0:
+            gid = getattr(obj, 'gid', 0)
+            if gid == 0:
                 continue
             props = self.tmx.tile_properties.get(gid, {})
             image_source = props.get('source')
@@ -57,17 +65,22 @@ class ItemManager:
             except ValueError:
                 rel_path = image_path_abs
             image_path = str(rel_path)
-            raw_id = Path(image_path).stem  # e.g. "sticker_1_64x64"
-            base_id = Inventory.normalize_item_id(raw_id)  # -> "sticker_1"
-            # Skip spawning if this sticker was already collected
+            raw_id = Path(image_path).stem
+            base_id = Inventory.normalize_item_id(raw_id)
+            # пропустити, якщо вже підібрано
             if base_id in self.inventory.items and self.inventory.items[base_id]['picked']:
                 continue
-            # Spawn the item sprite with the normalized ID
             Item(base_id, image_path, (obj.x, obj.y), [self.all_sprites, self.item_sprites])
 
     def check_pickups(self):
-        # Detect any collisions between player and items
         hits = pygame.sprite.spritecollide(self.player, self.item_sprites, dokill=True)
         for item in hits:
-            # Mark the item as picked in the inventory using the normalized ID
-            self.inventory.pickup_item(item.id)
+            dx = item.rect.centerx - self.player.rect.centerx
+            dy = item.rect.centery - self.player.rect.centery
+            if dx * dx + dy * dy <= PICKUP_RADIUS ** 2:
+                self.inventory.pickup_item(item.id)
+                # === Програти звук підбирання ===
+                if self.pickup_sound:
+                    self.pickup_sound.play()
+            else:
+                self.item_sprites.add(item)
