@@ -1,8 +1,6 @@
-# main.py
 import pygame
 from pygame.math import Vector2
 from collections import deque
-from pathlib import Path
 
 from settings import *
 from resource_manager import ResourceManager
@@ -14,37 +12,76 @@ from item_manager import ItemManager
 from music_manager import MusicManager
 from room_notifier import RoomNotifier
 from door_notifier import DoorNotifier  # импортируем DoorNotifier
+from menu import Menu
+
+from config import load_config, save_config
 
 
 class Game:
     def __init__(self):
-        # Инициализация Pygame и аудио
+        # 1) Load settings
+        cfg = load_config()
+        width, height = cfg["resolution"]
+        self.clock_fps = cfg["fps"]
+        self.fullscreen = cfg["fullscreen"]
+
+        # 2) Init Pygame & window (with fullscreen flag + scaling/buffering)
         pygame.init()
         pygame.mixer.init()
-        self.display = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-
-        # Инициализация баннера комнат и показываем стартовый (при необходимости)
+        BASE_FLAGS = pygame.HWSURFACE | pygame.DOUBLEBUF | pygame.SCALED
+        flags = BASE_FLAGS | (pygame.FULLSCREEN if self.fullscreen else 0)
+        self.display = pygame.display.set_mode((width, height), flags)
         self.room_notifier = RoomNotifier(self.display)
         self.room_notifier.show(Path(MAPS_DIR / 'corridor.tmx').stem)
-
-        # Инициализация баннера двери
         self.door_notifier = DoorNotifier(self.display)
-        # Флаг, показывающий, был ли контакт с дверью на прошлом кадре
         self.was_touching_door = False
 
         pygame.display.set_caption("JourneyPL")
         self.clock = pygame.time.Clock()
         self.running = True
 
-        # Фоновая музыка
+        # --- Load SFX ---
+        snd_dir = Path(PARENT_DIR) / 'data' / 'audio' / 'sounds'
+        try:
+            self.snd_inventory = pygame.mixer.Sound(str(snd_dir / 'inventory_open.mp3'))
+        except:
+            self.snd_inventory = None
+        try:
+            self.snd_door = pygame.mixer.Sound(str(snd_dir / 'door_open.mp3'))
+        except:
+            self.snd_door = None
+
+        # 3) Pause menu
+        font_choices = {
+            'title': str(Path(PARENT_DIR) / 'data' / 'fonts' / 'ANDYB.TTF'),
+            'item': str(Path(PARENT_DIR) / 'data' / 'fonts' / 'ANDYB.TTF'),
+        }
+        self.menu = Menu(self.display, font_choices, border_thickness=2)
+
+        # Pass initial settings into menu (including fullscreen)
+        try:
+            self.menu.sel_res = self.menu.res_list.index((width, height))
+        except ValueError:
+            self.menu.sel_res = 0
+        try:
+            self.menu.sel_fps = self.menu.fps_list.index(self.clock_fps)
+        except ValueError:
+            self.menu.sel_fps = 1
+        self.menu.fullscreen = self.fullscreen
+
+        # 4) Other game components
+        self.room_notifier = RoomNotifier(self.display)
+        initial_tmx = MAPS_DIR / 'corridor.tmx'
+        self.room_notifier.show(Path(initial_tmx).stem)
+
         self.music = MusicManager(volume=0.3)
         self.music.load('A_Walk_Along_the_Gates.mp3')
         self.music.play(loops=-1)
 
-        # Инвентарь
+        # Inventory
         self.inventory = Inventory()
 
-        # Группы спрайтов
+        # Sprite groups
         self.all_sprites = CameraGroup()
         self.collision_sprites = pygame.sprite.Group()
         self.item_sprites = pygame.sprite.Group()
@@ -57,13 +94,12 @@ class Game:
         self.setup()
 
         # Предрегистрация слотов для наклеек (стикеров)
-        stickers_dir = STICKERS_DIR
-        for png_path in stickers_dir.glob('*.png'):
+        for png_path in STICKERS_DIR.glob('*.png'):
             rel = png_path.relative_to(PARENT_DIR)
             surf = ResourceManager.load_image(rel)
             self.inventory.register_item(png_path.stem, surf)
 
-        # Спавн коллекционных предметов на первой карте
+        # Spawn collectibles for the first map
         self.item_manager = ItemManager(
             self.tmx,
             self.all_sprites,
@@ -76,25 +112,18 @@ class Game:
         self.item_manager.spawn_items()
 
     def setup(self):
-        # Очищаем предыдущие спрайты
+        # Clear any previous sprites
         self.all_sprites.empty()
         self.collision_sprites.empty()
         self.item_sprites.empty()
         self.door_sprites.empty()
 
-        # Рисуем слои земли
-        for x, y, img in self.tmx.get_layer_by_name('Ground').tiles():
-            WorldSprite((x * TILE_SIZE, y * TILE_SIZE), img, [self.all_sprites], ground=True)
-        for x, y, img in self.tmx.get_layer_by_name('Ground_layer1').tiles():
-            WorldSprite((x * TILE_SIZE, y * TILE_SIZE), img, [self.all_sprites], ground=True)
-        for x, y, img in self.tmx.get_layer_by_name('Ground_layer2').tiles():
-            WorldSprite((x * TILE_SIZE, y * TILE_SIZE), img, [self.all_sprites], ground=True)
-        for x, y, img in self.tmx.get_layer_by_name('Ground_layer3').tiles():
-            WorldSprite((x * TILE_SIZE, y * TILE_SIZE), img, [self.all_sprites], ground=True)
-        for x, y, img in self.tmx.get_layer_by_name('Ground_layer4').tiles():
-            WorldSprite((x * TILE_SIZE, y * TILE_SIZE), img, [self.all_sprites], ground=True)
+        # Ground layers
+        for layer in ['Ground', 'Ground_layer1', 'Ground_layer2', 'Ground_layer3', 'Ground_layer4']:
+            for x, y, img in self.tmx.get_layer_by_name(layer).tiles():
+                WorldSprite((x * TILE_SIZE, y * TILE_SIZE), img, [self.all_sprites], ground=True)
 
-        # Создаём игрока из слоя 'Entities'
+        # Player
         for obj in self.tmx.get_layer_by_name('Entities'):
             if obj.name == 'Player':
                 self.player = Player(
@@ -105,9 +134,10 @@ class Game:
                 self.all_sprites.set_target(self.player)
                 break
 
-        # Рисуем неподбираемые объекты
+        # Non-collectible Objects
         for obj in self.tmx.get_layer_by_name('Objects'):
             if getattr(obj, 'gid', 0):
+                continue
                 continue  # пропускаем тайловые объекты
             if obj.name:
                 path = f"data/graphics/objects/{obj.name}.png"
@@ -122,26 +152,25 @@ class Game:
             if getattr(obj, 'gid', 0):
                 continue  # пропускаем тайловые объекты
             if obj.name:
-                path = f"data/graphics/objects/{obj.name}.png"
-                WorldSprite(
-                    (obj.x, obj.y),
-                    path,
-                    [self.all_sprites, self.collision_sprites]
-                )
+                path = f'data/graphics/objects/{obj.name}.png'
+                WorldSprite((obj.x, obj.y), path, [self.all_sprites, self.collision_sprites])
 
-        # Физические коллизии
+        # Collision shapes
         for obj in self.tmx.get_layer_by_name('Collisions'):
             surf = pygame.Surface((obj.width, obj.height))
             surf.fill((0, 0, 0))
             WorldSprite((obj.x, obj.y), surf, [self.collision_sprites])
 
-        # Двери (скрытые триггеры)
+        # Doors (invisible triggers)
         for obj in self.tmx.get_layer_by_name('Doors'):
             if obj.type != 'Door':
                 continue
+
             door = pygame.sprite.Sprite(self.all_sprites, self.door_sprites)
             door.image = pygame.Surface((obj.width, obj.height), pygame.SRCALPHA)
             door.rect = pygame.Rect(obj.x, obj.y, obj.width, obj.height)
+
+            # Store target map
             door.target_map = obj.properties.get('target')
             raw_sx = obj.properties.get('spawn_x')
             raw_sy = obj.properties.get('spawn_y')
@@ -175,17 +204,20 @@ class Game:
                     queue.append(nb)
         self.reachable = reachable
 
-    def change_level(self, map_filename: str, spawn_pos: tuple[int, int] | None):
-        # Загрузка следующей карты
-        self.tmx = ResourceManager.load_tmx(MAPS_DIR / map_filename)
-        room_name = Path(map_filename).stem
-        self.room_notifier.show(room_name)
+    def change_level(self, map_file, spawn_pos: tuple[int, int] | None):
+        self.tmx = ResourceManager.load_tmx(MAPS_DIR / map_file)
+        room = Path(map_file).stem
+        if self.snd_door:
+            self.snd_door.play()
+        self.room_notifier.show(room)
         self.setup()
+        # 3) Reposition the player if spawn_pos given
         if spawn_pos:
             self.player.hitbox_rect.center = spawn_pos
             self.player.rect.center = spawn_pos
+        # 4) Re‐target camera
         self.all_sprites.set_target(self.player)
-        # Возрождаем предметы
+        # 5) Respawn collectibles
         self.item_manager = ItemManager(
             self.tmx,
             self.all_sprites,
@@ -196,23 +228,25 @@ class Game:
             self.reachable
         )
         self.item_manager.spawn_items()
-        room_name = Path(map_filename).stem
+        room_name = Path(map_file).stem
         self.room_notifier.show(room_name)
 
     def handle_events(self):
-        """Обработка входящих событий Pygame."""
         for e in pygame.event.get():
-            # Выход из игры
             if e.type == pygame.QUIT:
                 self.running = False
+            elif e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
+                self.menu.toggle()
 
-            # Клавиши управления
-            if e.type == pygame.KEYDOWN:
-                if e.key == pygame.K_i:
+            if not self.menu.is_open:
+                if e.type == pygame.KEYDOWN and e.key == pygame.K_i:
                     self.inventory.toggle()
-
-                elif e.key == pygame.K_e:
-                    # Взаимодействие с дверью по нажатию клавиши 'E'
+                    if self.snd_inventory:
+                        self.snd_inventory.play()
+                elif e.type == pygame.KEYDOWN and e.key == pygame.K_r:
+                    self.setup()
+                    self.item_manager.spawn_items()
+                elif e.type == pygame.KEYDOWN and e.key == pygame.K_e:
                     hits = pygame.sprite.spritecollide(
                         self.player,
                         self.door_sprites,
@@ -221,14 +255,44 @@ class Game:
                     )
                     if hits:
                         door = hits[0]
+                        if self.snd_door:
+                            self.snd_door.play()
                         self.change_level(door.target_map, door.spawn_pos)
-
             # Передаём нажатия мыши в инвентарь
             if e.type == pygame.MOUSEBUTTONDOWN:
                 self.inventory.handle_event(e)
 
+            self.menu.handle_event(e)
+            # Apply graphic settings
+            new_res = self.menu.res_list[self.menu.sel_res]
+            new_fs = self.menu.fullscreen
+            if self.display.get_size() != new_res or new_fs != self.fullscreen:
+                BASE_FLAGS = pygame.HWSURFACE | pygame.DOUBLEBUF | pygame.SCALED
+                flags = BASE_FLAGS | (pygame.FULLSCREEN if new_fs else 0)
+                pygame.display.set_mode(new_res, flags)
+                self.display = pygame.display.get_surface()
+                self.menu.display = self.display
+                self.room_notifier.display = self.display
+                self.fullscreen = new_fs
+                save_config({
+                    "resolution": list(new_res),
+                    "fps": self.clock_fps,
+                    "fullscreen": self.fullscreen
+                })
+
+            # Apply FPS
+            new_fps = self.menu.fps_list[self.menu.sel_fps]
+            if new_fps != self.clock_fps:
+                self.clock_fps = new_fps
+                save_config({
+                    "resolution": list(self.display.get_size()),
+                    "fps": self.clock_fps,
+                    "fullscreen": self.fullscreen
+                })
+
     def update(self, dt):
-        # Обновляем состояние предметов и спрайтов
+        if self.menu.is_open:
+            return
         self.item_manager.check_pickups()
         self.all_sprites.update(dt)
 
@@ -254,8 +318,7 @@ class Game:
 
     def render(self):
         self.display.fill('black')
-        self.all_sprites.draw(self.player)
-        # Отрисовываем баннер комнаты (если активен)
+        self.all_sprites.draw()
         self.room_notifier.draw()
         # Отрисовываем баннер двери (если активен)
         self.door_notifier.draw()
@@ -264,12 +327,12 @@ class Game:
 
     def run(self):
         while self.running:
-            dt = self.clock.tick(FPS) / 600
+            dt = self.clock.tick(self.clock_fps) / 600
             self.handle_events()
             self.update(dt)
             self.render()
         pygame.quit()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     Game().run()

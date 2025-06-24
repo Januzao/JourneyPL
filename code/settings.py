@@ -1,7 +1,7 @@
 from pathlib import Path
 
-WINDOW_WIDTH = 1920
-WINDOW_HEIGHT = 1080
+WINDOW_WIDTH = 1280
+WINDOW_HEIGHT = 720
 
 # tile size in used to precision
 TILE_SIZE = 64
@@ -26,5 +26,3 @@ PLAYER_DIR = PARENT_DIR / 'images' / 'player'
 # Maps and tilesets
 MAPS_DIR = PARENT_DIR / 'data' / 'maps'
 TILESETS_DIR = PARENT_DIR / 'data' / 'tilesets'
-# Audio, music.
-AUDIO_DIR = PARENT_DIR / 'data' / 'audio'
