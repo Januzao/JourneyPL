@@ -8,16 +8,6 @@ import re
 from settings import *
 from resource_manager import ResourceManager
 
-# === Sticker slot positions (adjust as needed) ===
-sticker_1_x, sticker_1_y = 390, 160
-sticker_2_x, sticker_2_y = 790, 160
-sticker_3_x, sticker_3_y = 500, 250
-sticker_4_x, sticker_4_y = 660, 240
-sticker_5_x, sticker_5_y = 390, 360
-sticker_6_x, sticker_6_y = 790, 360
-sticker_7_x, sticker_7_y = 500, 440
-sticker_8_x, sticker_8_y = 675, 440
-
 
 class InventoryItem:
     """Element of the inventory: holds color/gray image and picked state."""
@@ -85,6 +75,21 @@ class Inventory:
             bottomright=(self.bg_rect.right - margin, self.bg_rect.bottom - margin)
         )
 
+        # Relative sticker positions (relative to top-left of bg_rect)
+        self.sticker_offsets = [
+            (60, 60),     # Slot 1
+            (340, 60),    # Slot 2
+            (160, 140),   # Slot 3
+            (450, 130),   # Slot 4
+            (60, 260),    # Slot 5
+            (340, 260),   # Slot 6
+            (150, 340),   # Slot 7
+            (450, 340),   # Slot 8
+        ]
+
+        # Individual angles per sticker
+        self.sticker_angles = [24, -12, -34, 22, -40, 35, 25, -35]
+
     def toggle(self):
         """Open or close the inventory, play sound."""
         self.is_open = not self.is_open
@@ -150,40 +155,25 @@ class Inventory:
             display.blit(self.btn_next, self.btn_next_rect)
 
         # Determine which items to show on this page
-        icon_size = TILE_SIZE * 1.5  # size for each sticker icon
+        icon_size = TILE_SIZE * 1.5
         start = self.current_page * Inventory.ITEMS_PER_PAGE
         page_ids = self.items_order[start : start + Inventory.ITEMS_PER_PAGE]
 
-        # Predefined positions for up to 8 slots
-        positions = [
-            (sticker_1_x, sticker_1_y),
-            (sticker_2_x, sticker_2_y),
-            (sticker_3_x, sticker_3_y),
-            (sticker_4_x, sticker_4_y),
-            (sticker_5_x, sticker_5_y),
-            (sticker_6_x, sticker_6_y),
-            (sticker_7_x, sticker_7_y),
-            (sticker_8_x, sticker_8_y),
-        ]
-
-        angles = [24, -12, -34, 22, -40, -35, 25, -35]
-
         for idx, item_id in enumerate(page_ids):
-            if idx >= len(positions):
+            if idx >= len(self.sticker_offsets):
                 break
 
-            # 1) Scale the image
             orig = self.items[item_id].get_display_image()
             img = pygame.transform.scale(orig, (icon_size, icon_size))
 
-            # 2) Rotate around its center
-            angle = angles[idx % len(angles)]
+            angle = self.sticker_angles[idx % len(self.sticker_angles)]
             rotated_img = pygame.transform.rotate(img, angle)
 
-            # 3) Compute a rect so that the rotated image is centered on the slot
-            x, y = positions[idx]
-            slot_center = (x + icon_size // 2, y + icon_size // 2)
+            offset_x, offset_y = self.sticker_offsets[idx]
+            slot_center = (
+                self.bg_rect.left + offset_x + icon_size // 2,
+                self.bg_rect.top + offset_y + icon_size // 2,
+            )
             rotated_rect = rotated_img.get_rect(center=slot_center)
 
-            # 4) Blit the rotated image
             display.blit(rotated_img, rotated_rect.topleft)

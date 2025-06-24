@@ -1,7 +1,7 @@
 from pathlib import Path
 
-WINDOW_WIDTH = 1280
-WINDOW_HEIGHT = 720
+WINDOW_WIDTH = 1920
+WINDOW_HEIGHT = 1080
 
 # tile size in used to precision
 TILE_SIZE = 64
