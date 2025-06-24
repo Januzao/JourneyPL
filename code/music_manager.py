@@ -1,13 +1,13 @@
 import pygame
 from pathlib import Path
-from settings import PARENT_DIR
+from settings import *
 
 class MusicManager:
     def __init__(self, volume: float = 0.5):
         pygame.mixer.music.set_volume(volume)
 
     def load(self, filename: str):
-        music_path = Path(PARENT_DIR) / 'data' / 'audio' / filename
+        music_path = AUDIO_DIR / 'music' / filename
         pygame.mixer.music.load(str(music_path))
 
 

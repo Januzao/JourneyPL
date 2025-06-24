@@ -26,3 +26,5 @@ PLAYER_DIR = PARENT_DIR / 'images' / 'player'
 # Maps and tilesets
 MAPS_DIR = PARENT_DIR / 'data' / 'maps'
 TILESETS_DIR = PARENT_DIR / 'data' / 'tilesets'
+
+AUDIO_DIR = PARENT_DIR / 'data' / 'audio'

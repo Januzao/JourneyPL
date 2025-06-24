@@ -138,7 +138,6 @@ class Game:
         for obj in self.tmx.get_layer_by_name('Objects'):
             if getattr(obj, 'gid', 0):
                 continue
-                continue  # пропускаем тайловые объекты
             if obj.name:
                 path = f"data/graphics/objects/{obj.name}.png"
                 WorldSprite(
@@ -147,8 +146,7 @@ class Game:
                     [self.all_sprites, self.collision_sprites]
                 )
 
-        for obj in self.tmx.get_layer_by_name('Ground_objects'
-                                              ''):
+        for obj in self.tmx.get_layer_by_name('Ground_objects'):
             if getattr(obj, 'gid', 0):
                 continue  # пропускаем тайловые объекты
             if obj.name:
@@ -263,7 +261,6 @@ class Game:
                 self.inventory.handle_event(e)
 
             self.menu.handle_event(e)
-            # Apply graphic settings
             new_res = self.menu.res_list[self.menu.sel_res]
             new_fs = self.menu.fullscreen
             if self.display.get_size() != new_res or new_fs != self.fullscreen:
@@ -320,9 +317,9 @@ class Game:
         self.display.fill('black')
         self.all_sprites.draw()
         self.room_notifier.draw()
-        # Отрисовываем баннер двери (если активен)
         self.door_notifier.draw()
         self.inventory.render(self.display)
+        self.menu.render()
         pygame.display.flip()
 
     def run(self):

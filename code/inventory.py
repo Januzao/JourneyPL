@@ -57,7 +57,7 @@ class Inventory:
         self.current_page = 0
 
         # Open/close sound
-        audio_path = AUDIO_DIR / 'inventory_open.mp3'
+        audio_path = AUDIO_DIR / 'sounds' / 'inventory_open.mp3'
         self.sound = pygame.mixer.Sound(str(audio_path))
 
         # Arrow buttons
