@@ -30,7 +30,7 @@ class Game:
 
         # Background music
         self.music = MusicManager(volume=0.3)
-        self.music.load('A_Walk_Along_the_Gates.mp3')
+        self.music.load('music/A_Walk_Along_the_Gates.mp3')
         self.music.play(loops=-1)
 
         # Inventory
