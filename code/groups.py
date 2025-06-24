@@ -2,7 +2,6 @@
 import pygame
 from settings import WINDOW_WIDTH, WINDOW_HEIGHT
 
-
 class CameraGroup(pygame.sprite.Group):
     def __init__(self):
         super().__init__()
@@ -11,13 +10,12 @@ class CameraGroup(pygame.sprite.Group):
         # Вектор зсуву камери
         self.offset = pygame.math.Vector2()
         # Піврозміри екрана для обчислень центру
-        self.half_w = self.display_surface.get_width() // 2
-        self.half_h = self.display_surface.get_height() // 2
+        self.half_w = WINDOW_WIDTH // 2
+        self.half_h = WINDOW_HEIGHT // 2
         # Ціль камери (наприклад, гравець)
         self.target = None
         # Список шарів для паралаксу: [(surface, speed), ...]
         self.parallax_layers = []
-
 
     def set_target(self, sprite: pygame.sprite.Sprite) -> None:
         """Встановлює, за чим слідкуватиме камера."""
@@ -34,29 +32,24 @@ class CameraGroup(pygame.sprite.Group):
         self.offset.x = -(self.target.rect.centerx - self.half_w)
         self.offset.y = -(self.target.rect.centery - self.half_h)
 
-    def draw(self, player):
-        # Обновляем смещение камеры по позиции игрока
-        self.offset.x = player.rect.centerx - self.half_w
-        self.offset.y = player.rect.centery - self.half_h
+    def draw(self) -> None:
+        """Малює паралакс, землю та об'єкти, відсортовані за центром по Y."""
+        # Оновлюємо зсув камери
+        self._calculate_offset()
 
-        # Собираем списки ground-спрайтов и остальных
-        ground_sprites = []
-        other_sprites = []
-        for sprite in self.sprites():
-            if getattr(sprite, "ground", False):
-                ground_sprites.append(sprite)
-            else:
-                other_sprites.append(sprite)
+        # Малюємо паралакс-шари
+        for bg_surface, speed in self.parallax_layers:
+            parallax_offset = self.offset * speed
+            self.display_surface.blit(bg_surface, parallax_offset)
 
-        # Рисуем сначала «земные» спрайты без сортировки (фоновые)
-        for sprite in ground_sprites:
-            offset_pos = sprite.rect.topleft - self.offset
-            self.display_surface.blit(sprite.image, offset_pos)
+        # Розділяємо спрайти на землю і об'єкти
+        ground_sprites = [s for s in self if getattr(s, 'ground', False)]
+        object_sprites = [s for s in self if not getattr(s, 'ground', False)]
 
-        # Сортируем остальные спрайты по rect.bottom и рисуем
-        for sprite in sorted(other_sprites, key=lambda s: s.rect.bottom):
-            offset_pos = sprite.rect.topleft - self.offset
-            self.display_surface.blit(sprite.image, offset_pos)
-
-        # Если нужно, можно обновлять и self.lostsprites, но при простом выводе
-        # достаточно вызывать blit, как показано выше.
+        # Намалювати земляні спрайти, потім об'єкти з сортуванням по Y
+        for layer in (ground_sprites, object_sprites):
+            for sprite in sorted(layer, key=lambda s: s.rect.centery):
+                self.display_surface.blit(
+                    sprite.image,
+                    sprite.rect.topleft + self.offset
+                )
