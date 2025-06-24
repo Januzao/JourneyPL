@@ -26,12 +26,12 @@ class Game:
         self.clock = pygame.time.Clock()
         self.running = True
 
-        # RoomNotifier
+        # Room notifier
         self.room_notifier = RoomNotifier(self.display)
         initial_tmx = MAPS_DIR / 'corridor.tmx'
         self.room_notifier.show(Path(initial_tmx).stem)
 
-        # Фонова музика
+        # Фоновий трек
         self.music = MusicManager(volume=0.3)
         self.music.load('music/A_Walk_Along_the_Gates.mp3')
         self.music.play(loops=-1)
@@ -39,22 +39,18 @@ class Game:
         # Інвентар
         self.inventory = Inventory()
 
-        # === Звук відкриття дверей ===
-        door_path = Path(PARENT_DIR) / 'data' / 'audio' / 'sounds' / 'door_open.mp3'
-        try:
-            self.door_sound = pygame.mixer.Sound(str(door_path))
-        except Exception:
-            self.door_sound = None
-
         # Меню паузи
-        font_choices = {'title': None, 'item': None}
+        font_choices = {
+            'title': str(Path(PARENT_DIR) / 'data' / 'fonts' / 'ANDYB.TTF'),
+            'item':  str(Path(PARENT_DIR) / 'data' / 'fonts' / 'ANDYB.TTF'),
+        }
         self.menu = Menu(self.display, font_choices, border_thickness=2)
 
         # Спрайт‐групи
-        self.all_sprites       = CameraGroup()
-        self.collision_sprites = pygame.sprite.Group()
-        self.item_sprites      = pygame.sprite.Group()
-        self.door_sprites      = pygame.sprite.Group()
+        self.all_sprites      = CameraGroup()
+        self.collision_sprites= pygame.sprite.Group()
+        self.item_sprites     = pygame.sprite.Group()
+        self.door_sprites     = pygame.sprite.Group()
 
         # Завантажити карту та побудувати світ
         self.tmx = ResourceManager.load_tmx(initial_tmx)
@@ -79,18 +75,18 @@ class Game:
         self.item_manager.spawn_items()
 
     def setup(self):
-        # Очистити групи
+        # Очистити всі групи
         self.all_sprites.empty()
         self.collision_sprites.empty()
         self.item_sprites.empty()
         self.door_sprites.empty()
 
-        # Шари землі
-        for layer in ['Ground', 'Ground_layer1', 'Ground_layer2', 'Ground_layer3', 'Ground_layer4']:
+        # Малюємо шари землі
+        for layer in ['Ground', 'Ground_layer1','Ground_layer2','Ground_layer3','Ground_layer4']:
             for x, y, img in self.tmx.get_layer_by_name(layer).tiles():
                 WorldSprite((x*TILE_SIZE, y*TILE_SIZE), img, [self.all_sprites], ground=True)
 
-        # Створити гравця
+        # Створюємо гравця
         for obj in self.tmx.get_layer_by_name('Entities'):
             if obj.name == 'Player':
                 self.player = Player(
@@ -109,7 +105,7 @@ class Game:
                 path = f'data/graphics/objects/{obj.name}.png'
                 WorldSprite((obj.x, obj.y), path, [self.all_sprites, self.collision_sprites])
 
-        # Колізії
+        # Колізійні блоки
         for obj in self.tmx.get_layer_by_name('Collisions'):
             surf = pygame.Surface((obj.width, obj.height))
             surf.fill((0,0,0))
@@ -123,10 +119,11 @@ class Game:
             door.image = pygame.Surface((obj.width, obj.height), pygame.SRCALPHA)
             door.rect = pygame.Rect(obj.x, obj.y, obj.width, obj.height)
             door.target_map = obj.properties.get('target')
-            sx = obj.properties.get('spawn_x'); sy = obj.properties.get('spawn_y')
+            sx = obj.properties.get('spawn_x')
+            sy = obj.properties.get('spawn_y')
             door.spawn_pos = (int(sx), int(sy)) if sx is not None and sy is not None else None
 
-        # Обчислити досяжні тайли
+        # Обчислюємо досяжні клітини
         free = set()
         w, h = self.tmx.width, self.tmx.height
         for tx in range(w):
@@ -146,22 +143,18 @@ class Game:
                     queue.append(nb)
         self.reachable = reachable
 
-    def change_level(self, map_filename, spawn_pos=None):
-        self.tmx = ResourceManager.load_tmx(MAPS_DIR / map_filename)
-        room = Path(map_filename).stem
+    def change_level(self, map_file, spawn_pos=None):
+        self.tmx = ResourceManager.load_tmx(MAPS_DIR / map_file)
+        room = Path(map_file).stem
         self.room_notifier.show(room)
         self.setup()
         if spawn_pos:
             self.player.hitbox_rect.center = spawn_pos
-            self.player.rect.center = spawn_pos
+            self.player.rect.center       = spawn_pos
         self.all_sprites.set_target(self.player)
         self.item_manager = ItemManager(
-            self.tmx,
-            self.all_sprites,
-            self.item_sprites,
-            self.inventory,
-            self.player,
-            self.collision_sprites,
+            self.tmx, self.all_sprites, self.item_sprites,
+            self.inventory, self.player, self.collision_sprites,
             self.reachable
         )
         self.item_manager.spawn_items()
@@ -169,33 +162,34 @@ class Game:
 
     def handle_events(self):
         for e in pygame.event.get():
-            self.menu.handle_event(e)
             if e.type == pygame.QUIT:
                 self.running = False
-            if self.menu.is_open:
-                continue
+            elif e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
+                self.menu.toggle()
 
-            if e.type == pygame.KEYDOWN:
-                if e.key == pygame.K_i:
+            # Головна логіка лише коли меню закрито
+            if not self.menu.is_open:
+                if e.type == pygame.KEYDOWN and e.key == pygame.K_i:
                     self.inventory.toggle()
-                elif e.key == pygame.K_r:
+                elif e.type == pygame.KEYDOWN and e.key == pygame.K_r:
                     self.setup()
                     self.item_manager.spawn_items()
-                elif e.key == pygame.K_e:
+                elif e.type == pygame.KEYDOWN and e.key == pygame.K_e:
                     hits = pygame.sprite.spritecollide(
                         self.player,
                         self.door_sprites,
                         dokill=False,
-                        collided=lambda p,d: p.hitbox_rect.colliderect(d.rect)
+                        collided=lambda p, d: p.hitbox_rect.colliderect(d.rect)
                     )
                     if hits:
                         door = hits[0]
-                        # === Програти звук відкриття дверей ===
-                        if self.door_sound:
-                            self.door_sound.play()
                         self.change_level(door.target_map, door.spawn_pos)
 
+            # Передаємо всі події в меню (для Sound & Graphic Settings)
+            self.menu.handle_event(e)
+
     def update(self, dt):
+        # Якщо меню відкрито — пауза
         if self.menu.is_open:
             return
         self.item_manager.check_pickups()
@@ -212,11 +206,11 @@ class Game:
 
     def run(self):
         while self.running:
-            dt = self.clock.tick(FPS) / 1000
+            dt = self.clock.tick(FPS) / 600
             self.handle_events()
             self.update(dt)
             self.render()
         pygame.quit()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     Game().run()
