@@ -24,7 +24,7 @@ class Game:
         # 1) Load settings
         cfg = load_config()
         width, height = cfg["resolution"]
-        self.clock_fps  = cfg["fps"]
+        self.clock_fps = cfg["fps"]
         self.fullscreen = cfg["fullscreen"]
 
         # 2) Init Pygame & window (with fullscreen flag + scaling/buffering)
@@ -36,6 +36,17 @@ class Game:
         pygame.display.set_caption("JourneyPL")
         self.clock = pygame.time.Clock()
         self.running = True
+
+        # --- Load SFX ---
+        snd_dir = Path(PARENT_DIR) / 'data' / 'audio' / 'sounds'
+        try:
+            self.snd_inventory = pygame.mixer.Sound(str(snd_dir / 'inventory_open.mp3'))
+        except:
+            self.snd_inventory = None
+        try:
+            self.snd_door = pygame.mixer.Sound(str(snd_dir / 'door_open.mp3'))
+        except:
+            self.snd_door = None
 
         # 3) Pause menu
         font_choices = {
@@ -98,9 +109,9 @@ class Game:
         self.door_sprites.empty()
 
         # Ground layers
-        for layer in ['Ground', 'Ground_layer1','Ground_layer2','Ground_layer3','Ground_layer4']:
+        for layer in ['Ground', 'Ground_layer1', 'Ground_layer2', 'Ground_layer3', 'Ground_layer4']:
             for x, y, img in self.tmx.get_layer_by_name(layer).tiles():
-                WorldSprite((x*TILE_SIZE, y*TILE_SIZE), img, [self.all_sprites], ground=True)
+                WorldSprite((x * TILE_SIZE, y * TILE_SIZE), img, [self.all_sprites], ground=True)
 
         # Player
         for obj in self.tmx.get_layer_by_name('Entities'):
@@ -124,12 +135,13 @@ class Game:
         # Collision blocks
         for obj in self.tmx.get_layer_by_name('Collisions'):
             surf = pygame.Surface((obj.width, obj.height))
-            surf.fill((0,0,0))
+            surf.fill((0, 0, 0))
             WorldSprite((obj.x, obj.y), surf, [self.collision_sprites])
 
         # Doors
         for obj in self.tmx.get_layer_by_name('Doors'):
-            if obj.type != 'Door': continue
+            if obj.type != 'Door':
+                continue
             door = pygame.sprite.Sprite(self.all_sprites, self.door_sprites)
             door.image = pygame.Surface((obj.width, obj.height), pygame.SRCALPHA)
             door.rect = pygame.Rect(obj.x, obj.y, obj.width, obj.height)
@@ -143,16 +155,16 @@ class Game:
         w, h = self.tmx.width, self.tmx.height
         for tx in range(w):
             for ty in range(h):
-                cell = pygame.Rect(tx*TILE_SIZE, ty*TILE_SIZE, TILE_SIZE, TILE_SIZE)
+                cell = pygame.Rect(tx * TILE_SIZE, ty * TILE_SIZE, TILE_SIZE, TILE_SIZE)
                 if not any(col.rect.colliderect(cell) for col in self.collision_sprites):
                     free.add((tx, ty))
-        start = (self.player.rect.centerx//TILE_SIZE, self.player.rect.centery//TILE_SIZE)
+        start = (self.player.rect.centerx // TILE_SIZE, self.player.rect.centery // TILE_SIZE)
         self.reachable = {start}
         queue = deque([start])
         while queue:
             cx, cy = queue.popleft()
-            for dx, dy in [(1,0),(-1,0),(0,1),(0,-1)]:
-                nb = (cx+dx, cy+dy)
+            for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
+                nb = (cx + dx, cy + dy)
                 if nb in free and nb not in self.reachable:
                     self.reachable.add(nb)
                     queue.append(nb)
@@ -160,6 +172,8 @@ class Game:
     def change_level(self, map_file, spawn_pos=None):
         self.tmx = ResourceManager.load_tmx(MAPS_DIR / map_file)
         room = Path(map_file).stem
+        if self.snd_door:
+            self.snd_door.play()
         self.room_notifier.show(room)
         self.setup()
         if spawn_pos:
@@ -183,6 +197,8 @@ class Game:
             if not self.menu.is_open:
                 if e.type == pygame.KEYDOWN and e.key == pygame.K_i:
                     self.inventory.toggle()
+                    if self.snd_inventory:
+                        self.snd_inventory.play()
                 elif e.type == pygame.KEYDOWN and e.key == pygame.K_r:
                     self.setup()
                     self.item_manager.spawn_items()
@@ -195,6 +211,8 @@ class Game:
                     )
                     if hits:
                         door = hits[0]
+                        if self.snd_door:
+                            self.snd_door.play()
                         self.change_level(door.target_map, door.spawn_pos)
 
             self.menu.handle_event(e)
