@@ -49,6 +49,7 @@ from room_notifier import RoomNotifier
 from door_notifier import DoorNotifier
 from menu import Menu
 
+
 # ---------------------------------------------------------------------
 # Start menu logic (was missing from menu.py; now inlined here) -------
 # ---------------------------------------------------------------------
@@ -72,6 +73,7 @@ def run_menu(screen: pygame.Surface) -> str:
                 return "quit"
             elif event.type == pygame.KEYDOWN and event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
                 return "investigation"
+
 
 # ---------------------------------------------------------------------
 # Helper utilities
@@ -464,4 +466,3 @@ if __name__ == "__main__":
 
     pygame.quit()
     sys.exit()
-
