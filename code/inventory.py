@@ -146,6 +146,21 @@ class Inventory:
         if not self.is_open:
             return
 
+        # Get display size (might have changed)
+        win_width, win_height = display.get_size()
+
+        # Recompute bg_rect to keep centered
+        self.bg_rect = self.bg.get_rect(center=(win_width // 2, win_height // 2))
+
+        # Update arrow rects
+        margin = 20
+        self.btn_prev_rect = self.btn_prev.get_rect(
+            bottomleft=(self.bg_rect.left + margin, self.bg_rect.bottom - margin)
+        )
+        self.btn_next_rect = self.btn_next.get_rect(
+            bottomright=(self.bg_rect.right - margin, self.bg_rect.bottom - margin)
+        )
+
         # Draw background
         display.blit(self.bg, self.bg_rect)
 
@@ -157,7 +172,7 @@ class Inventory:
         # Determine which items to show on this page
         icon_size = TILE_SIZE * 1.5
         start = self.current_page * Inventory.ITEMS_PER_PAGE
-        page_ids = self.items_order[start : start + Inventory.ITEMS_PER_PAGE]
+        page_ids = self.items_order[start: start + Inventory.ITEMS_PER_PAGE]
 
         for idx, item_id in enumerate(page_ids):
             if idx >= len(self.sticker_offsets):
