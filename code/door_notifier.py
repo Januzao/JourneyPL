@@ -12,19 +12,33 @@ class DoorNotifier:
     FADE_TIME = DISPLAY_TIME - FADE_DELAY  # длительность затухания
 
     def __init__(self, display_surface):
+        self.display_surface = None
         self.display = display_surface
         self.active = False
         self.start_time = 0
         self.image = None
         self.rect = None
+        w, h = pygame.display.get_surface().get_size()
 
-    def show(self):
-        """Запустить показ баннера двери."""
-        banner_path = UI_DIR / "door_banner.png"
+    def _reposition(self) -> None:
+        """Помещает баннер внизу по центру, отталкиваясь от окна."""
+        if not self.image:
+            return
+        w, h = self.display_surface.get_size()
+        self.rect = self.image.get_rect(midbottom=(w // 2, int(h * 0.95)))
+
+    def show(self) -> None:
+        """Запускает показ баннера двери."""
+        banner_path: Path = UI_DIR / "door_banner.png"
         img = ResourceManager.load_image(banner_path)
+
         self.image = img.convert_alpha()
-        self.image.set_alpha(255)  # начальная непрозрачность
-        self.rect = self.image.get_rect(midbottom=(WINDOW_WIDTH // 2, WINDOW_HEIGHT * 0.95))
+        self.image.set_alpha(255)  # стартовая непрозрачность
+
+        # Каждое новое появление — актуализируем ссылку на окно и позицию.
+        self.display_surface = pygame.display.get_surface()
+        self._reposition()
+
         self.start_time = pygame.time.get_ticks()
         self.active = True
 
