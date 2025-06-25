@@ -3,6 +3,9 @@ from pathlib import Path
 WINDOW_WIDTH = 1280
 WINDOW_HEIGHT = 720
 
+WELCOME_WIDTH, WELCOME_HEIGHT = 1280, 720
+MENU_WIDTH, MENU_HEIGHT = 1920, 1080
+
 # tile size in used to precision
 TILE_SIZE = 64
 FPS = 60

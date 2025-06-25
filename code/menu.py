@@ -1,6 +1,6 @@
 import pygame
 from pathlib import Path
-from settings import WINDOW_WIDTH, WINDOW_HEIGHT, PARENT_DIR
+from settings import *
 
 
 class Menu:
