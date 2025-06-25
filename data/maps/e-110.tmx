@@ -128,7 +128,7 @@
   <object id="19" x="17.3333" y="626.667" width="552" height="86.6667"/>
   <object id="20" x="-57.3333" y="-5.33333" width="117.333" height="942.667"/>
   <object id="21" x="648" y="-10.6667" width="176" height="972"/>
-  <object id="22" x="-72" y="884" width="829.333" height="96"/>
+  <object id="22" x="-82.6667" y="864" width="829.333" height="96"/>
  </objectgroup>
  <objectgroup id="12" name="Doors">
   <object id="15" name="Door" type="Door" x="408.667" y="824.667" width="165.333" height="78.6666">

@@ -137,7 +137,7 @@
     <property name="target" value="e-109.tmx"/>
    </properties>
   </object>
-  <object id="42" name="Door" type="Door" x="2670.67" y="427.333" width="165.333" height="78.6666">
+  <object id="42" name="Door" type="Door" x="2676" y="415.333" width="165.333" height="78.6666">
    <properties>
     <property name="spawn_x" type="float" value="470"/>
     <property name="spawn_y" type="float" value="850"/>
@@ -153,12 +153,12 @@
   </object>
  </objectgroup>
  <objectgroup id="6" name="Collisions">
-  <object id="1" x="138.333" y="135.303" width="115.152" height="1130.3"/>
+  <object id="1" x="142.333" y="133.97" width="115.152" height="1130.3"/>
   <object id="2" x="249.576" y="1188.48" width="1748.48" height="87.8788"/>
   <object id="3" x="783.364" y="805.333" width="118.182" height="403.03"/>
   <object id="4" x="1292.82" y="806.061" width="121.212" height="421.212"/>
   <object id="5" x="894.667" y="1153.58" width="398.425" height="72.7273"/>
-  <object id="6" x="1985.27" y="893.394" width="2051.52" height="348.485"/>
+  <object id="6" x="1982.6" y="876.061" width="2051.52" height="348.485"/>
   <object id="7" x="4035.81" y="112.242" width="218.182" height="1018.18"/>
   <object id="8" x="246.545" y="33.8788" width="3834.79" height="379.394"/>
   <object id="9" x="833.333" y="149.333" width="509.333" height="340"/>
