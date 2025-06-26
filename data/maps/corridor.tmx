@@ -153,27 +153,27 @@
   </object>
  </objectgroup>
  <objectgroup id="6" name="Collisions">
-  <object id="1" x="142.333" y="133.97" width="115.152" height="1130.3"/>
+  <object id="1" x="149" y="132.637" width="115.152" height="1130.3"/>
   <object id="2" x="249.576" y="1188.48" width="1748.48" height="87.8788"/>
-  <object id="3" x="783.364" y="805.333" width="118.182" height="403.03"/>
-  <object id="4" x="1292.82" y="806.061" width="121.212" height="421.212"/>
-  <object id="5" x="894.667" y="1153.58" width="398.425" height="72.7273"/>
+  <object id="3" x="768.697" y="804" width="127.515" height="403.03"/>
+  <object id="4" x="1279.49" y="806.061" width="134.545" height="421.212"/>
+  <object id="5" x="866.667" y="1124.25" width="423.758" height="72.7273"/>
   <object id="6" x="1982.6" y="876.061" width="2051.52" height="348.485"/>
-  <object id="7" x="4035.81" y="112.242" width="218.182" height="1018.18"/>
+  <object id="7" x="4031.81" y="110.909" width="218.182" height="1018.18"/>
   <object id="8" x="246.545" y="33.8788" width="3834.79" height="379.394"/>
-  <object id="9" x="833.333" y="149.333" width="509.333" height="340"/>
-  <object id="10" x="255" y="301.667" width="63" height="168"/>
-  <object id="12" x="771.333" y="302.667" width="57" height="168"/>
-  <object id="13" x="1348.33" y="293.333" width="54" height="168"/>
+  <object id="9" x="826.666" y="142.666" width="521.333" height="340"/>
+  <object id="10" x="255" y="311" width="63" height="168"/>
+  <object id="12" x="771.333" y="308" width="57" height="168"/>
+  <object id="13" x="1347" y="309.333" width="54" height="168"/>
   <object id="14" x="1859.67" y="295.333" width="54" height="168"/>
   <object id="15" x="2501.67" y="306.667" width="54" height="168"/>
   <object id="16" x="2627.67" y="306" width="54" height="168"/>
-  <object id="17" x="3267.67" y="310" width="54" height="168"/>
+  <object id="17" x="3267.67" y="310" width="55.3333" height="168"/>
   <object id="18" x="3396.33" y="308.667" width="54" height="168"/>
   <object id="20" x="1541.33" y="389.333" width="73.3333" height="72"/>
   <object id="23" x="2054" y="401.333" width="73.3333" height="72"/>
   <object id="25" x="2822" y="404" width="73.3333" height="72"/>
-  <object id="26" x="3325" y="320" width="68.6667" height="168"/>
+  <object id="26" x="3319.67" y="321.333" width="76.6667" height="168"/>
   <object id="27" x="2557.67" y="324" width="68.6667" height="168"/>
   <object id="28" x="1789.67" y="322.667" width="68.6667" height="168"/>
  </objectgroup>

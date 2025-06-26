@@ -119,7 +119,7 @@
   <object id="37" gid="509" x="498.333" y="290.333" width="86" height="65"/>
  </objectgroup>
  <objectgroup id="14" name="Entities">
-  <object id="12" name="Player" x="101.333" y="793.333">
+  <object id="12" name="Player" x="184" y="832">
    <point/>
   </object>
  </objectgroup>
@@ -127,10 +127,10 @@
   <object id="1" x="-33.3333" y="-16" width="92" height="964"/>
   <object id="2" x="29.5562" y="869.118" width="629.333" height="78.6667"/>
   <object id="3" x="648" y="-44" width="136" height="1009.33"/>
-  <object id="4" x="-30.6667" y="-84" width="796" height="274.667"/>
-  <object id="5" x="134.89" y="244.664" width="510.667" height="69.3333"/>
-  <object id="6" x="136" y="433.333" width="512" height="69.3333"/>
-  <object id="7" x="137.333" y="618.667" width="512" height="73.3333"/>
+  <object id="4" x="-30.6667" y="-84" width="796" height="265.334"/>
+  <object id="5" x="134.89" y="235.331" width="510.667" height="92"/>
+  <object id="6" x="136" y="421.333" width="512" height="96"/>
+  <object id="7" x="137.333" y="616" width="512" height="94.6666"/>
  </objectgroup>
  <objectgroup id="15" name="Doors">
   <object id="13" name="Door" type="Door" x="107.562" y="828.442" width="148" height="73.3333">

@@ -228,12 +228,12 @@
  </objectgroup>
  <objectgroup id="7" name="Ground_objects"/>
  <objectgroup id="8" name="Entities">
-  <object id="8" name="Player" x="641" y="2497">
+  <object id="8" name="Player" x="638.333" y="2430.33">
    <point/>
   </object>
  </objectgroup>
  <objectgroup id="9" name="Collisions">
-  <object id="1" x="962" y="1150" width="298" height="1420"/>
+  <object id="1" x="963.333" y="1118" width="298" height="1456"/>
   <object id="2" x="72" y="260" width="242" height="2296"/>
   <object id="3" x="233.333" y="2532.67" width="794" height="112"/>
   <object id="4" x="254" y="182" width="1070" height="354"/>
