@@ -48,6 +48,7 @@ from music_manager import MusicManager
 from room_notifier import RoomNotifier
 from door_notifier import DoorNotifier
 from menu import Menu
+from transition import *
 
 
 # ---------------------------------------------------------------------
@@ -197,6 +198,12 @@ class Game:
             self.reachable,
         )
         self.item_manager.spawn_items()
+        # Добавляем поддержку анимации перехода между уровнями
+        # self.transition хранит объект анимации (None, если переход не запущен)
+        self.transition = None
+        # pending_level, pending_spawn — уровни и позиции игрока, на которые переключимся после анимации
+        self.pending_level = None
+        self.pending_spawn = None
 
     # ------------------------------------------------------------------
     # World / level construction helpers
@@ -317,22 +324,38 @@ class Game:
     # ------------------------------------------------------------------
 
     def handle_events(self) -> None:
-        """Poll & handle Pygame events – input, window, menu, etc."""
         for e in pygame.event.get():
+            # ------------------------------------------------------------------
+            # 1. Системные события
+            # ------------------------------------------------------------------
             if e.type == pygame.QUIT:
                 self.running = False
-            elif e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
+                continue
+            # ------------------------------------------------------------------
+            # 2. Тумблер пауз-меню (ESC)
+            # ------------------------------------------------------------------
+            if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
                 self.menu.toggle()
-
-            if not self.menu.is_open:
+                continue
+            # ------------------------------------------------------------------
+            # 3. Инвентарь / перезагрузка / двери
+            #    (доступно ТОЛЬКО когда меню закрыто
+            #     И нет активной анимации перехода)
+            # ------------------------------------------------------------------
+            if not self.menu.is_open and not self.transition:
+                # 3.1 Инвентарь (I)
                 if e.type == pygame.KEYDOWN and e.key == pygame.K_i:
                     self.inventory.toggle()
                     if self.snd_inventory:
                         self.snd_inventory.play()
-                elif e.type == pygame.KEYDOWN and e.key == pygame.K_r:
+                    continue
+                # 3.2 Быстрая перезагрузка карты (R)
+                if e.type == pygame.KEYDOWN and e.key == pygame.K_r:
                     self.setup()
                     self.item_manager.spawn_items()
-                elif e.type == pygame.KEYDOWN and e.key == pygame.K_e:
+                    continue
+                # 3.3 Переход через дверь (E)
+                if e.type == pygame.KEYDOWN and e.key == pygame.K_e:
                     hits = pygame.sprite.spritecollide(
                         self.player,
                         self.door_sprites,
@@ -343,17 +366,28 @@ class Game:
                         door = hits[0]
                         if self.snd_door:
                             self.snd_door.play()
-                        self.change_level(door.target_map, door.spawn_pos)
-            # Forward mouse events to inventory regardless of menu state
+
+                        # --- Запускаем анимацию перехода ----------------------
+                        self.pending_level = door.target_map  # что загрузить
+                        self.pending_spawn = door.spawn_pos  # где появиться
+                        self.transition = HorizontalRectangleSwipeTransition()
+                        continue  # остальные обработчики пропускаем
+            # ------------------------------------------------------------------
+            # 4. Мышь – всегда передаём клики инвентарю,
+            #    а затем – меню (если оно открыто)
+            # ------------------------------------------------------------------
             if e.type == pygame.MOUSEBUTTONDOWN:
                 self.inventory.handle_event(e)
-
-            # Let the pause/settings menu handle UI clicks & keyboard
+            # ------------------------------------------------------------------
+            # 5. Меню – UI-обработка кликов, клавиш,
+            #    ползунков звука и т.п.
+            # ------------------------------------------------------------------
             self.menu.handle_event(e)
-
-            # ----------------------------------------------------------------
-            # Resolution / fullscreen changes triggered by the pause menu
-            # ----------------------------------------------------------------
+            # ------------------------------------------------------------------
+            # 6. Применение настроек из меню (разрешение, FPS, fullscreen)
+            #    Выполняем даже во время перехода, чтобы пользователь
+            #    мог менять их на паузе.
+            # ------------------------------------------------------------------
             new_res = self.menu.res_list[self.menu.sel_res]
             new_fs = self.menu.fullscreen
             if self.display.get_size() != new_res or new_fs != self.fullscreen:
@@ -361,17 +395,19 @@ class Game:
                 flags = BASE_FLAGS | (pygame.FULLSCREEN if new_fs else 0)
                 pygame.display.set_mode(new_res, flags)
                 self.display = pygame.display.get_surface()
-                # Update references in subsystems
+
+                # Обновляем ссылку в других подсистемах
                 self.menu.display = self.display
                 self.room_notifier.display = self.display
                 self.fullscreen = new_fs
+
+                # Сохраняем конфиг
                 save_config({
                     "resolution": list(new_res),
                     "fps": self.clock_fps,
                     "fullscreen": self.fullscreen,
                 })
 
-            # Apply FPS changes
             new_fps = self.menu.fps_list[self.menu.sel_fps]
             if new_fps != self.clock_fps:
                 self.clock_fps = new_fps
@@ -391,6 +427,20 @@ class Game:
         self.item_manager.check_pickups()
         self.all_sprites.update(dt)
 
+        if self.transition:
+            self.transition.update(dt)
+            # Если анимация завершена, переключаем уровень
+            if not self.transition.is_transitioning():
+                self.change_level(self.pending_level, self.pending_spawn)
+                # Сбрасываем состояние перехода
+                self.transition = None
+                self.pending_level = None
+                self.pending_spawn = None
+            return
+
+        self.item_manager.check_pickups()
+        self.all_sprites.update(dt)
+
         # Door proximity detection (shows banner when touching a door)
         hits = pygame.sprite.spritecollide(
             self.player,
@@ -404,10 +454,8 @@ class Game:
             self.was_touching_door = True
         else:
             self.was_touching_door = False
-
         # Update banners fade‑outs
         self.room_notifier.update()
-        self.door_notifier.update()
 
     def render(self) -> None:
         self.display.fill('black')
@@ -416,16 +464,13 @@ class Game:
         self.door_notifier.draw()
         self.inventory.render(self.display)
         self.menu.render()
+        if self.transition:
+            self.display.blit(self.transition.image, self.transition.rect)
         pygame.display.flip()
 
-    # ------------------------------------------------------------------
-    # Main loop
-    # ------------------------------------------------------------------
-
     def run(self) -> None:
-        """Run the main game loop until the window is closed."""
         while self.running:
-            dt = self.clock.tick(self.clock_fps) / 600  # Normalise delta
+            dt = self.clock.tick(self.clock_fps) / 1000  # Normalise delta
             self.handle_events()
             self.update(dt)
             self.render()

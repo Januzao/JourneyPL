@@ -140,7 +140,7 @@
   <object id="42" name="Door" type="Door" x="2676" y="415.333" width="165.333" height="78.6666">
    <properties>
     <property name="spawn_x" type="float" value="470"/>
-    <property name="spawn_y" type="float" value="850"/>
+    <property name="spawn_y" type="float" value="840"/>
     <property name="target" value="e-110.tmx"/>
    </properties>
   </object>
