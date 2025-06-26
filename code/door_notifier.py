@@ -43,7 +43,6 @@ class DoorNotifier:
         self.active = True
 
     def update(self):
-        """Управление временем показа и плавным затуханием."""
         if not self.active:
             return
         elapsed = pygame.time.get_ticks() - self.start_time

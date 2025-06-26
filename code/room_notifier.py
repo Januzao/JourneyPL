@@ -54,10 +54,8 @@ class RoomNotifier:
         self.active = True
 
     def update(self):
-        """Керує фейдом і вимикає по завершенню."""
         if not self.active:
             return
-
         elapsed = pygame.time.get_ticks() - self.start_time
         if elapsed >= self.DISPLAY_TIME:
             self.active = False
