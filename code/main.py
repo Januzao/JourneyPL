@@ -8,7 +8,7 @@ import pygame
 import cv2
 from pygame.math import Vector2
 
-from settings import *                # SPRITES_DIR, PARENT_DIR, MAPS_DIR, STICKERS_DIR, TILE_SIZE, тощо
+from settings import *  # SPRITES_DIR, PARENT_DIR, MAPS_DIR, STICKERS_DIR, TILE_SIZE, тощо
 from config import load_config, save_config
 from resource_manager import ResourceManager
 from sprites import WorldSprite
@@ -22,9 +22,12 @@ from door_notifier import DoorNotifier
 from menu import Menu
 from transition import *
 
+from settings import MENU_WIDTH, MENU_HEIGHT, PARENT_DIR
+
 
 class VideoBackground:
     """Відтворює вказане відео в циклі як фон через OpenCV."""
+
     def __init__(self, rel_path: str, screen: pygame.Surface):
         video_path = Path(PARENT_DIR) / rel_path
         if not video_path.exists():
@@ -52,61 +55,87 @@ def run_menu(screen: pygame.Surface) -> str:
     clock = pygame.time.Clock()
 
     # Fade-in overlay
-    fade_duration = 1.0                        # seconds for full fade
-    fade_alpha    = 255
-    fade_surf     = pygame.Surface(screen.get_size()).convert_alpha()
+    fade_duration = 1.0
+    fade_alpha = 255
+    fade_surf = pygame.Surface(screen.get_size()).convert_alpha()
     fade_surf.fill((0, 0, 0))
 
     # 1) Фон через OpenCV
     bg_video = VideoBackground("data/video/my_intro.mp4", screen)
 
-    # 2) Логотип зверху
+    # 2) Оригінальний логотип (ще без масштабування)
     logo_img = pygame.image.load(
         str(Path(PARENT_DIR) / "data/graphics/ui/PL_Journey.png")
     ).convert_alpha()
-    logo_w = int(screen.get_width() * 0.4)
-    logo_h = int(logo_img.get_height() * (logo_w / logo_img.get_width()))
-    logo = pygame.transform.scale(logo_img, (logo_w, logo_h))
-    logo_rect = logo.get_rect(midtop=(screen.get_width() // 2, 20))
 
-    # 3) Ініціюємо Game для доступу до Menu та fullscreen-параметра
+    # 3) Ініціалізуємо Game для доступу до меню та fullscreen
     game = Game()
     game.display = screen
     game.menu.display = screen
 
-    # 4) Налаштування пунктів головного меню
+    # 4) Пункти головного меню
     option_keys = ["Play", "Settings", "How to play", "Fullscreen", "Exit"]
-    menu_font = pygame.font.Font(
-        str(Path(PARENT_DIR) / "data/fonts/ANDYB.TTF"), 48
-    )
-    spacing = 10
-    count = len(option_keys)
-    total_h = count * menu_font.get_height() + (count - 1) * spacing
-    start_y = screen.get_height() - total_h - 150
 
-    # 5) Звук наведення, обводка
+    # — Змінні для динамічного перерахунку —
+    prev_size = screen.get_size()
+    menu_font: pygame.font.Font
+    spacing: int
+    total_h: int
+    start_y: int
+    logo: pygame.Surface
+    logo_rect: pygame.Rect
+
+    def recalc_layout():
+        nonlocal menu_font, spacing, total_h, start_y, logo, logo_rect
+        w, h = screen.get_size()
+
+        # масштаб від базового розміру
+        scale = min(w / MENU_WIDTH, h / MENU_HEIGHT)
+
+        # шрифт
+        font_size = max(int(48 * scale), 16)
+        menu_font = pygame.font.Font(
+            str(Path(PARENT_DIR) / "data/fonts/ANDYB.TTF"),
+            font_size
+        )
+
+        # відстань між пунктами
+        spacing = int(10 * scale)
+        count = len(option_keys)
+        total_h = count * menu_font.get_height() + (count - 1) * spacing
+        start_y = h - total_h - int(150 * scale)
+
+        # логотип: 40% від ширини екрану
+        logo_w = int(w * 0.4)
+        logo_h = int(logo_img.get_height() * (logo_w / logo_img.get_width()))
+        logo = pygame.transform.smoothscale(logo_img, (logo_w, logo_h))
+        logo_rect = logo.get_rect(midtop=(w // 2, int(20 * scale)))
+
+        # підлаштовуємо фон
+        bg_video.target_size = (w, h)
+
+    # Перший розрахунок
+    recalc_layout()
+
+    # 5) Звук наведення та обводка
     hover_sound = pygame.mixer.Sound(
         str(Path(PARENT_DIR) / "data/audio/sounds/hover.mp3")
     )
     prev_hover = None
     outline_th = 2
 
-    # --- функція показу How to play ---
-    # --- функція показу How to play з заокругленими кутами ---
+    # --- функція How to play лишається без змін ---
     def show_how_to_play():
         img_path = Path(PARENT_DIR) / "data/graphics/ui/how_to_play.png"
         if not img_path.exists():
             return
-        # 1) Завантажуємо оригінал
         orig = pygame.image.load(str(img_path)).convert_alpha()
-
-        # 2) Масштабуємо у 50% від початкового
         ow, oh = orig.get_size()
         scale = 0.5
         tw, th = int(ow * scale), int(oh * scale)
         img = pygame.transform.smoothscale(orig, (tw, th))
 
-        # 3) Рендеримо маску з заокругленими кутами
+        # маска з заокругленими кутами
         radius = 20
         mask = pygame.Surface((tw, th), pygame.SRCALPHA)
         pygame.draw.rect(mask, (255, 255, 255, 255), (0, 0, tw, th), border_radius=radius)
@@ -114,14 +143,12 @@ def run_menu(screen: pygame.Surface) -> str:
         rounded.blit(img, (0, 0))
         rounded.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
 
-        # 4) Центруємо поверх меню
         sw, sh = screen.get_size()
         pos = ((sw - tw) // 2, (sh - th) // 2)
 
-        # 5) Відображаємо до ESC або кліка
         while True:
             for ev in pygame.event.get():
-                if ev.type == pygame.QUIT:
+                if ev.type in (pygame.QUIT,):
                     pygame.quit()
                     sys.exit()
                 if ev.type == pygame.KEYDOWN and ev.key == pygame.K_ESCAPE:
@@ -129,52 +156,55 @@ def run_menu(screen: pygame.Surface) -> str:
                 if ev.type == pygame.MOUSEBUTTONDOWN:
                     return
 
-            # — перемальовуємо фон меню позаду —
             screen.blit(bg_video.get_frame(), (0, 0))
             screen.blit(logo, logo_rect)
+            # перемальовуємо пункти меню, як нижче
             for i, text in enumerate(option_texts):
-                color = (255,255,0) if i==hovered else (255,255,255)
+                color = (255, 255, 0) if i == hovered else (255, 255, 255)
                 rect = option_rects[i]
-                # обвідка
-                for dx in range(-outline_th, outline_th+1):
-                    for dy in range(-outline_th, outline_th+1):
-                        if dx==0 and dy==0: continue
-                        o_surf = menu_font.render(text, True, (0,0,0))
-                        o_rect  = o_surf.get_rect(center=(rect.centerx+dx, rect.centery+dy))
+                for dx in range(-outline_th, outline_th + 1):
+                    for dy in range(-outline_th, outline_th + 1):
+                        if dx == 0 and dy == 0: continue
+                        o_surf = menu_font.render(text, True, (0, 0, 0))
+                        o_rect = o_surf.get_rect(center=(rect.centerx + dx, rect.centery + dy))
                         screen.blit(o_surf, o_rect)
                 t_surf = menu_font.render(text, True, color)
                 screen.blit(t_surf, t_surf.get_rect(center=rect.center))
 
-            # — малюємо заокруглену картинку —
             screen.blit(rounded, pos)
-
             pygame.display.flip()
             clock.tick(fps)
 
-
+    # Головний цикл
     while True:
-        # 0) Compute delta time for fade
         dt = clock.tick(fps) / 1000.0
 
-        # Динамічно формуємо відображувані тексти та їхні rect
+        # — ВСТЕЖЕННЯ ЗМІНИ РОЗМІРУ ВІКНА —
+        new_surf = pygame.display.get_surface()
+        if new_surf.get_size() != prev_size:
+            screen = new_surf
+            prev_size = screen.get_size()
+            recalc_layout()
+
+        # Готуємо списки текстів і rect’ів
         option_texts = []
         option_rects = []
         for i, key in enumerate(option_keys):
+            text = key
             if key == "Fullscreen":
-                text = f"Fullscreen: {'On' if game.fullscreen else 'Off'}"
-            else:
-                text = key
+                on = bool(pygame.display.get_surface().get_flags() & pygame.FULLSCREEN)
+                text = f"Fullscreen: {'On' if on else 'Off'}"
             option_texts.append(text)
 
-            w, h = menu_font.size(text)
-            rect = pygame.Rect(0, 0, w, h)
+            w_txt, h_txt = menu_font.size(text)
+            rect = pygame.Rect(0, 0, w_txt, h_txt)
             rect.center = (
                 screen.get_width() // 2,
-                start_y + i * (h + spacing)
+                start_y + i * (h_txt + spacing)
             )
             option_rects.append(rect)
 
-        # Визначаємо hovered-індекс
+        # Визначаємо hovered
         mx, my = pygame.mouse.get_pos()
         hovered = next(
             (i for i, r in enumerate(option_rects) if r.collidepoint(mx, my)),
@@ -188,73 +218,71 @@ def run_menu(screen: pygame.Surface) -> str:
         for e in pygame.event.get():
             if e.type == pygame.QUIT:
                 return "quit"
-
             if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
                 if game.menu.is_open:
                     game.menu.toggle()
                 else:
                     return "quit"
-
             if game.menu.is_open:
                 game.menu.handle_event(e)
                 continue
 
-            # Мишка
+            # Клік миші
             if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1 and hovered is not None:
-                key = option_keys[hovered]
-                if key == "Play":
+                sel = option_keys[hovered]
+                if sel == "Play":
                     return "investigation"
-                if key == "Exit":
-                    return "quit"
-                if key == "Settings":
+                if sel == "Settings":
                     game.menu.toggle()
-                if key == "How to play":
+                if sel == "How to play":
                     show_how_to_play()
-                if key == "Fullscreen":
+                if sel == "Fullscreen":
                     game.fullscreen = not game.fullscreen
-                    width, height = screen.get_size()
+                    w, h = screen.get_size()
                     flags = pygame.HWSURFACE | pygame.DOUBLEBUF | pygame.SCALED | (
                         pygame.FULLSCREEN if game.fullscreen else 0
                     )
-                    screen = pygame.display.set_mode((width, height), flags)
+                    screen = pygame.display.set_mode((w, h), flags)
                     game.display = screen
                     game.menu.display = screen
                     save_config({
-                        "resolution": [width, height],
+                        "resolution": [w, h],
                         "fps": fps,
                         "fullscreen": game.fullscreen,
                     })
+                if sel == "Exit":
+                    return "quit"
                 continue
 
-            # Клавіатура (Enter)
+            # Натиск Enter — ТА Ж ЛОГІКА, ЩО І ДЛЯ КЛІКА :contentReference[oaicite:0]{index=0}
             if (e.type == pygame.KEYDOWN and
-                e.key in (pygame.K_RETURN, pygame.K_KP_ENTER) and
-                hovered is not None):
-                key = option_keys[hovered]
-                if key == "Play":
+                    e.key in (pygame.K_RETURN, pygame.K_KP_ENTER) and
+                    hovered is not None):
+                sel = option_keys[hovered]
+                if sel == "Play":
                     return "investigation"
-                if key == "Exit":
-                    return "quit"
-                if key == "Settings":
+                if sel == "Settings":
                     game.menu.toggle()
-                if key == "How to play":
+                if sel == "How to play":
                     show_how_to_play()
-                if key == "Fullscreen":
+                if sel == "Fullscreen":
                     game.fullscreen = not game.fullscreen
-                    width, height = screen.get_size()
+                    w, h = screen.get_size()
                     flags = pygame.HWSURFACE | pygame.DOUBLEBUF | pygame.SCALED | (
                         pygame.FULLSCREEN if game.fullscreen else 0
                     )
-                    screen = pygame.display.set_mode((width, height), flags)
+                    screen = pygame.display.set_mode((w, h), flags)
                     game.display = screen
                     game.menu.display = screen
                     save_config({
-                        "resolution": [width, height],
+                        "resolution": [w, h],
                         "fps": fps,
                         "fullscreen": game.fullscreen,
                     })
+                if sel == "Exit":
+                    return "quit"
 
-        # Рендер головного меню / налаштувань
+        # Рендер
         screen.blit(bg_video.get_frame(), (0, 0))
         screen.blit(logo, logo_rect)
 
@@ -264,22 +292,18 @@ def run_menu(screen: pygame.Surface) -> str:
             for i, text in enumerate(option_texts):
                 color = (255, 255, 0) if i == hovered else (255, 255, 255)
                 rect = option_rects[i]
-
                 # обводка
                 for dx in range(-outline_th, outline_th + 1):
                     for dy in range(-outline_th, outline_th + 1):
-                        if dx == 0 and dy == 0:
-                            continue
+                        if dx == 0 and dy == 0: continue
                         o_surf = menu_font.render(text, True, (0, 0, 0))
                         o_rect = o_surf.get_rect(center=(rect.centerx + dx, rect.centery + dy))
                         screen.blit(o_surf, o_rect)
-
                 # текст
                 t_surf = menu_font.render(text, True, color)
-                t_rect = t_surf.get_rect(center=rect.center)
-                screen.blit(t_surf, t_rect)
+                screen.blit(t_surf, t_surf.get_rect(center=rect.center))
 
-        # Плавне затухання від чорного
+        # Плавне затухання
         if fade_alpha > 0:
             fade_alpha -= (255 / fade_duration) * dt
             fade_alpha = max(fade_alpha, 0)
@@ -289,9 +313,7 @@ def run_menu(screen: pygame.Surface) -> str:
         pygame.display.flip()
 
 
-def create_centered_window(size: tuple[int, int], flags: int = 0) -> pygame.Surface:
-    os.environ["SDL_VIDEO_WINDOW_POS"] = "center"
-    return pygame.display.set_mode(size, flags)
+#
 
 
 # ---------------------------------------------------------------------
@@ -343,10 +365,14 @@ class Game:
             "item": str(Path(PARENT_DIR) / "data" / "fonts" / "ANDYB.TTF"),
         }
         self.menu = Menu(self.display, font_choices, border_thickness=2)
-        try: self.menu.sel_res = self.menu.res_list.index((width, height))
-        except:  self.menu.sel_res = 0
-        try: self.menu.sel_fps = self.menu.fps_list.index(self.clock_fps)
-        except:  self.menu.sel_fps = 1
+        try:
+            self.menu.sel_res = self.menu.res_list.index((width, height))
+        except:
+            self.menu.sel_res = 0
+        try:
+            self.menu.sel_fps = self.menu.fps_list.index(self.clock_fps)
+        except:
+            self.menu.sel_fps = 1
         self.menu.fullscreen = self.fullscreen
 
         self.music = MusicManager(volume=0.3)
@@ -490,11 +516,13 @@ class Game:
 
     def handle_events(self) -> None:
         for event in pygame.event.get():
+            # Закриття вікна
             if event.type == pygame.QUIT:
                 self.running = False
                 self.exit_to_menu = False
                 return
 
+            # Діалог підтвердження виходу
             if self.confirm_exit:
                 W, H = self.display.get_size()
                 dw, dh = 400, 200
@@ -518,13 +546,38 @@ class Game:
 
                 return
 
+            # 1) Меню налаштувань відкрите
             if self.menu.is_open:
+                prev_fs = self.fullscreen
+                prev_res = self.display.get_size()
+
+                # Обробляємо подію в меню
                 self.menu.handle_event(event)
+
+                # Після menu.handle_event перевіряємо, чи змінилося щось
+                curr_surface = pygame.display.get_surface()
+                curr_res = curr_surface.get_size()
+                if self.menu.fullscreen != prev_fs or curr_res != prev_res:
+                    # Застосовуємо нові налаштування
+                    self.fullscreen = self.menu.fullscreen
+                    self.display = curr_surface
+                    self.menu.display = curr_surface
+                    self.room_notifier.display = curr_surface
+
+                    save_config({
+                        "resolution": list(curr_res),
+                        "fps": self.clock_fps,
+                        "fullscreen": self.fullscreen,
+                    })
+
+                # Якщо в меню було обрано Exit
                 if self.menu.exit_selected:
                     self.menu.exit_selected = False
                     self.confirm_exit = True
+
                 continue
 
+            # 2) Меню закрите — базова навігація по грі
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 self.menu.toggle()
                 continue
@@ -557,34 +610,10 @@ class Game:
                         self.transition = HorizontalRectangleSwipeTransition()
                     continue
 
+            # 3) Інші кліки та передача подій інвентарю/меню
             if event.type == pygame.MOUSEBUTTONDOWN:
                 self.inventory.handle_event(event)
             self.menu.handle_event(event)
-
-            new_res = self.menu.res_list[self.menu.sel_res]
-            new_fs = self.menu.fullscreen
-            if self.display.get_size() != new_res or new_fs != self.fullscreen:
-                BASE_FLAGS = pygame.HWSURFACE | pygame.DOUBLEBUF | pygame.SCALED
-                flags = BASE_FLAGS | (pygame.FULLSCREEN if new_fs else 0)
-                pygame.display.set_mode(new_res, flags)
-                self.display = pygame.display.get_surface()
-                self.menu.display = self.display
-                self.room_notifier.display = self.display
-                self.fullscreen = new_fs
-                save_config({
-                    "resolution": list(new_res),
-                    "fps": self.clock_fps,
-                    "fullscreen": self.fullscreen,
-                })
-
-            new_fps = self.menu.fps_list[self.menu.sel_fps]
-            if new_fps != self.clock_fps:
-                self.clock_fps = new_fps
-                save_config({
-                    "resolution": list(self.display.get_size()),
-                    "fps": self.clock_fps,
-                    "fullscreen": self.fullscreen,
-                })
 
     def update(self, dt: float) -> None:
         if self.menu.is_open or self.confirm_exit:

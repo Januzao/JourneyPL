@@ -5,19 +5,22 @@ from settings import *
 class Menu:
     def __init__(self, display, font_choices, border_thickness=2):
         self.display = display
+        self.font_choices = font_choices
+        self.base_resolution = (1920, 1080)
+        self.border = border_thickness
+
         self.is_open = False
         self.in_sound = False
         self.in_graphic = False
         self.open_res = False
         self.open_fps = False
-        self.border = border_thickness
         self.hover = None
         self.exit_selected = False
 
         # Sound settings
         self.music_vol = 0.5
-        self.sfx_vol   = 0.5
-        self.dragging  = None
+        self.sfx_vol = 0.5
+        self.dragging = None
 
         # Graphic settings
         pygame.font.init()
@@ -28,22 +31,16 @@ class Menu:
             self.res_list = [self.display.get_size()]
         self.res_strs = [f"{w}x{h}" for w, h in self.res_list]
         self.fps_list = [30, 60, 90, 120, 144]
-        self.sel_res   = 0
-        self.sel_fps   = 1  # default 60
+        self.sel_res = 0
+        self.sel_fps = 1  # default to 60
         self.fullscreen = False
 
-        # Fonts
+        # Prepare scaling and fonts
         self.fonts = {}
-        for key, path in font_choices.items():
-            size = 72 if key == 'title' else 36
-            if path:
-                self.fonts[key] = pygame.font.Font(path, size)
-            else:
-                self.fonts[key] = pygame.font.SysFont(None, size)
+        self.update_scale()
 
         # Main menu items
         self.items = ["Graphic Settings", "Sound Settings", "Achievements", "Exit"]
-
 
         # Hover sound
         hover_path = Path(PARENT_DIR) / 'data' / 'audio' / 'sounds' / 'hover.mp3'
@@ -54,10 +51,31 @@ class Menu:
             self.hover_snd = None
         pygame.mixer.music.set_volume(self.music_vol)
 
+    def update_scale(self):
+        W, H = self.display.get_size()
+        base_w, base_h = self.base_resolution
+        self.scale = min(W / base_w, H / base_h)
+
+        # Panel size
+        self.pw = max(int(600 * self.scale), 300)
+        self.ph = max(int(450 * self.scale), 200)
+
+        # Fonts
+        for key, path in self.font_choices.items():
+            if key == 'title':
+                size = max(int(72 * self.scale), 24)
+            else:
+                size = max(int(36 * self.scale), 16)
+            if path:
+                self.fonts[key] = pygame.font.Font(path, size)
+            else:
+                self.fonts[key] = pygame.font.SysFont(None, size)
+
     def apply_graphic_settings(self):
         flags = pygame.FULLSCREEN if self.fullscreen else 0
         w, h = self.res_list[self.sel_res]
         self.display = pygame.display.set_mode((w, h), flags)
+        self.update_scale()
 
     def toggle(self):
         self.is_open = not self.is_open
@@ -71,7 +89,6 @@ class Menu:
         if not self.is_open:
             return
 
-        # ESC: exit any submenu or close menu
         if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
             if self.in_sound or self.in_graphic or self.open_res or self.open_fps:
                 self.in_sound = self.in_graphic = self.open_res = self.open_fps = False
@@ -103,15 +120,14 @@ class Menu:
         # Graphic submenu logic
         if self.in_graphic:
             W, H = self.display.get_size()
-            pw, ph = 600, 450
-            rect = pygame.Rect((W-pw)//2, (H-ph)//2, pw, ph)
-            box_w = pw - 200
-            box_x = rect.left + (pw-box_w)//2
+            rect = pygame.Rect((W - self.pw)//2, (H - self.ph)//2, self.pw, self.ph)
+            box_w = self.pw - int(200 * self.scale)
+            box_x = rect.left + (self.pw - box_w)//2
             fi = self.fonts['item']
-            ih = fi.get_height() + 8
-            res_y = rect.top + 140
-            fps_y = res_y + ih + 40
-            fs_y  = fps_y + ih + 40
+            ih = fi.get_height() + int(8 * self.scale)
+            res_y = rect.top + int(140 * self.scale)
+            fps_y = res_y + ih + int(40 * self.scale)
+            fs_y  = fps_y + ih + int(40 * self.scale)
 
             mx, my = None, None
             if event.type == pygame.MOUSEBUTTONDOWN:
@@ -126,7 +142,7 @@ class Menu:
             # Pick a resolution
             if self.open_res and event.type == pygame.MOUSEBUTTONDOWN:
                 for i in range(len(self.res_list)):
-                    if pygame.Rect(box_x, res_y+ih*(i+1), box_w, ih).collidepoint(mx, my):
+                    if pygame.Rect(box_x, res_y + ih*(i+1), box_w, ih).collidepoint(mx, my):
                         self.sel_res = i
                         self.open_res = False
                         self.apply_graphic_settings()
@@ -141,7 +157,7 @@ class Menu:
             # Pick an FPS
             if self.open_fps and event.type == pygame.MOUSEBUTTONDOWN:
                 for i in range(len(self.fps_list)):
-                    if pygame.Rect(box_x, fps_y+ih*(i+1), box_w, ih).collidepoint(mx, my):
+                    if pygame.Rect(box_x, fps_y + ih*(i+1), box_w, ih).collidepoint(mx, my):
                         self.sel_fps = i
                         self.open_fps = False
                         return
@@ -157,21 +173,20 @@ class Menu:
         # Sound submenu logic
         if self.in_sound:
             W, H = self.display.get_size()
-            pw, ph = 600, 450
-            rect = pygame.Rect((W-pw)//2, (H-ph)//2, pw, ph)
-            box_w = pw - 200
-            box_x = rect.left + (pw-box_w)//2
-            my_line = rect.top + ph//2 - 50
-            sy_line = my_line + 100
-            kr = 10
+            rect = pygame.Rect((W - self.pw)//2, (H - self.ph)//2, self.pw, self.ph)
+            box_w = self.pw - int(200 * self.scale)
+            box_x = rect.left + (self.pw - box_w)//2
+            my_line = rect.top + self.ph//2 - int(50 * self.scale)
+            sy_line = my_line + int(100 * self.scale)
+            kr = int(10 * self.scale)
             mxk = box_x + int(box_w * self.music_vol)
             sxk = box_x + int(box_w * self.sfx_vol)
 
             if event.type == pygame.MOUSEBUTTONDOWN:
                 x, y = event.pos
-                if (x-mxk)**2 + (y-my_line)**2 <= kr**2:
+                if (x - mxk)**2 + (y - my_line)**2 <= kr**2:
                     self.dragging = 'music'
-                if (x-sxk)**2 + (y-sy_line)**2 <= kr**2:
+                if (x - sxk)**2 + (y - sy_line)**2 <= kr**2:
                     self.dragging = 'sfx'
             elif event.type == pygame.MOUSEBUTTONUP:
                 self.dragging = None
@@ -202,17 +217,15 @@ class Menu:
         self.display.blit(ov, (0,0))
 
         # Panel
-        pw, ph = 600, 450
-        panel = pygame.Surface((pw, ph), pygame.SRCALPHA)
+        panel = pygame.Surface((self.pw, self.ph), pygame.SRCALPHA)
         panel.fill((30,30,30,230))
-        rect  = panel.get_rect(center=(W//2, H//2))
+        rect = panel.get_rect(center=(W//2, H//2))
         self.display.blit(panel, rect)
 
-        # Bordered‐text helper
         def dc(c, f, x, y, col):
             for dx in range(-self.border, self.border+1):
                 for dy in range(-self.border, self.border+1):
-                    if dx==0 and dy==0: continue
+                    if dx == 0 and dy == 0: continue
                     s = f.render(c, True, (0,0,0)).convert_alpha()
                     self.display.blit(s, (x+dx, y+dy))
             s = f.render(c, True, col).convert_alpha()
@@ -224,123 +237,115 @@ class Menu:
         ft = self.fonts['title']
         tw = sum(ft.size(c)[0] for c in title)
         x = W//2 - tw//2
-        y = rect.top + 60 - ft.get_height()//2
+        y = rect.top + int(self.ph * 0.13) - ft.get_height()//2
         for c in title:
             x += dc(c, ft, x, y, (255,255,255))
 
         fi = self.fonts['item']
-        box_w = pw - 200
-        bx    = rect.left + (pw-box_w)//2
-        ih    = fi.get_height() + 8
-        res_y = rect.top + 140
-        fps_y = res_y + ih + 40
-        fs_y  = fps_y + ih + 40
+        box_w = self.pw - int(200 * self.scale)
+        bx = rect.left + (self.pw - box_w)//2
+        ih = fi.get_height() + int(8 * self.scale)
+        margin_y = int(140 * self.scale)
+        fps_gap = int(40 * self.scale)
+        res_y = rect.top + margin_y
+        fps_y = res_y + ih + fps_gap
+        fs_y  = fps_y + ih + fps_gap
 
         # Graphic submenu rendering
         if self.in_graphic:
-            # 1) Draw Resolution section unless FPS is open:
             if not self.open_fps:
                 lbl = "Resolution"
                 lx = W//2 - fi.size('0')[0]*len(lbl)//2
-                ly = res_y - 40
+                ly = res_y - int(40 * self.scale)
                 for c in lbl:
                     lx += dc(c, fi, lx, ly, (255,255,255))
-                pygame.draw.rect(self.display, (100,100,100), (bx,res_y,box_w,ih))
-                tx, ty = bx+10, res_y+4
+                pygame.draw.rect(self.display, (100,100,100), (bx, res_y, box_w, ih))
+                tx, ty = bx + int(10 * self.scale), res_y + int(4 * self.scale)
                 for c in self.res_strs[self.sel_res]:
                     tx += dc(c, fi, tx, ty, (255,255,255))
-                pygame.draw.polygon(self.display, (255,255,255),
-                    [(bx+box_w-20, res_y+ih//2-5),
-                     (bx+box_w-10, res_y+ih//2-5),
-                     (bx+box_w-15, res_y+ih//2+5)])
-            # 2) Draw FPS section unless Res is open:
+                pygame.draw.polygon(self.display, (255,255,255), [
+                    (bx + box_w - int(20 * self.scale), res_y + ih//2 - int(5 * self.scale)),
+                    (bx + box_w - int(10 * self.scale), res_y + ih//2 - int(5 * self.scale)),
+                    (bx + box_w - int(15 * self.scale), res_y + ih//2 + int(5 * self.scale))
+                ])
             if not self.open_res:
                 lbl = "FPS"
                 lx = W//2 - fi.size('0')[0]*len(lbl)//2
-                ly = fps_y - 40
+                ly = fps_y - int(40 * self.scale)
                 for c in lbl:
                     lx += dc(c, fi, lx, ly, (255,255,255))
-                pygame.draw.rect(self.display, (100,100,100), (bx,fps_y,box_w,ih))
-                tx, ty = bx+10, fps_y+4
+                pygame.draw.rect(self.display, (100,100,100), (bx, fps_y, box_w, ih))
+                tx, ty = bx + int(10 * self.scale), fps_y + int(4 * self.scale)
                 for c in str(self.fps_list[self.sel_fps]):
                     tx += dc(c, fi, tx, ty, (255,255,255))
-                pygame.draw.polygon(self.display, (255,255,255),
-                    [(bx+box_w-20, fps_y+ih//2-5),
-                     (bx+box_w-10, fps_y+ih//2-5),
-                     (bx+box_w-15, fps_y+ih//2+5)])
-            # 3) Draw Fullscreen only if no dropdown is open:
+                pygame.draw.polygon(self.display, (255,255,255), [
+                    (bx + box_w - int(20 * self.scale), fps_y + ih//2 - int(5 * self.scale)),
+                    (bx + box_w - int(10 * self.scale), fps_y + ih//2 - int(5 * self.scale)),
+                    (bx + box_w - int(15 * self.scale), fps_y + ih//2 + int(5 * self.scale))
+                ])
             if not (self.open_res or self.open_fps):
                 lbl = "Fullscreen"
                 lx = W//2 - fi.size('0')[0]*len(lbl)//2
-                ly = fs_y - 40
+                ly = fs_y - int(40 * self.scale)
                 for c in lbl:
                     lx += dc(c, fi, lx, ly, (255,255,255))
-                pygame.draw.rect(self.display, (100,100,100), (bx,fs_y,box_w,ih))
+                pygame.draw.rect(self.display, (100,100,100), (bx, fs_y, box_w, ih))
                 state = "On" if self.fullscreen else "Off"
-                tx, ty = bx+10, fs_y+4
+                tx, ty = bx + int(10 * self.scale), fs_y + int(4 * self.scale)
                 for c in state:
                     tx += dc(c, fi, tx, ty, (255,255,255))
 
-            # 4) Finally draw any open dropdown options on top:
             if self.open_res:
                 for i, opt in enumerate(self.res_strs):
-                    oy = res_y + ih*(i+1)
-                    pygame.draw.rect(self.display, (50,50,50), (bx,oy,box_w,ih))
-                    tx, ty = bx+10, oy+4
+                    oy = res_y + ih * (i+1)
+                    pygame.draw.rect(self.display, (50,50,50), (bx, oy, box_w, ih))
+                    tx, ty = bx + int(10 * self.scale), oy + int(4 * self.scale)
                     for c in opt:
                         tx += dc(c, fi, tx, ty, (255,255,255))
 
             if self.open_fps:
                 for i, opt in enumerate(self.fps_list):
-                    oy = fps_y + ih*(i+1)
-                    pygame.draw.rect(self.display, (50,50,50), (bx,oy,box_w,ih))
-                    tx, ty = bx+10, oy+4
+                    oy = fps_y + ih * (i+1)
+                    pygame.draw.rect(self.display, (50,50,50), (bx, oy, box_w, ih))
+                    tx, ty = bx + int(10 * self.scale), oy + int(4 * self.scale)
                     for c in str(opt):
                         tx += dc(c, fi, tx, ty, (255,255,255))
 
             tip = fi.render("Press ESC to go back", True, (180,180,180))
-            self.display.blit(tip, ((W-tip.get_width())//2, rect.bottom-40))
+            self.display.blit(tip, ((W - tip.get_width())//2, rect.bottom - int(40 * self.scale)))
             return
 
         # Sound submenu rendering
         if self.in_sound:
-            my  = rect.top + ph//2 - 50
-            sy  = my + 100
-            kr  = 10
-            # Music label
+            my_line = rect.top + self.ph//2 - int(50 * self.scale)
+            sy_line = my_line + int(100 * self.scale)
+            kr = int(10 * self.scale)
+            pygame.draw.rect(self.display, (100,100,100), (bx, my_line - int(5 * self.scale), box_w, int(10 * self.scale)))
+            pygame.draw.rect(self.display, (100,100,100), (bx, sy_line - int(5 * self.scale), box_w, int(10 * self.scale)))
             lblm = "Music"
-            lx   = bx
-            ly   = my - 40
+            lx, ly = bx, my_line - int(40 * self.scale)
             for c in lblm:
                 lx += dc(c, fi, lx, ly, (255,255,255))
-            # Sounds label
             lbls = "Sounds"
-            lx2  = bx
-            ly2  = sy - 40
+            lx2, ly2 = bx, sy_line - int(40 * self.scale)
             for c in lbls:
                 lx2 += dc(c, fi, lx2, ly2, (255,255,255))
-
-            pygame.draw.rect(self.display, (100,100,100), (bx,my-5,box_w,10))
-            pygame.draw.rect(self.display, (100,100,100), (bx,sy-5,box_w,10))
             mxk = bx + int(box_w * self.music_vol)
             sxk = bx + int(box_w * self.sfx_vol)
-            pygame.draw.circle(self.display,
-                (200,200,0) if self.dragging=='music' else (255,255,255),
-                (mxk, my), kr)
-            pygame.draw.circle(self.display,
-                (200,200,0) if self.dragging=='sfx' else (255,255,255),
-                (sxk, sy), kr)
+            pygame.draw.circle(self.display, (200,200,0) if self.dragging=='music' else (255,255,255), (mxk, my_line), kr)
+            pygame.draw.circle(self.display, (200,200,0) if self.dragging=='sfx' else (255,255,255), (sxk, sy_line), kr)
             tip = fi.render("Press ESC to go back", True, (180,180,180))
-            self.display.blit(tip, ((W-tip.get_width())//2, rect.bottom-40))
+            self.display.blit(tip, ((W - tip.get_width())//2, rect.bottom - int(40 * self.scale)))
             return
 
         # Main menu rendering
         mx, my = pygame.mouse.get_pos()
         new_hover = None
+        item_gap = int(50 * self.scale)
         for idx, text in enumerate(self.items):
             tw = sum(fi.size(c)[0] for c in text)
             rx = W//2 - tw//2
-            ry = rect.top + 140 + idx*50 - fi.get_height()//2
+            ry = rect.top + margin_y + idx * item_gap - fi.get_height()//2
             if pygame.Rect(rx, ry, tw, fi.get_height()).collidepoint(mx, my):
                 new_hover = idx
                 break
@@ -349,8 +354,8 @@ class Menu:
         self.hover = new_hover
 
         for idx, text in enumerate(self.items):
-            color = (255,255,0) if idx==self.hover else (255,255,255)
+            color = (255,255,0) if idx == self.hover else (255,255,255)
             x = W//2 - sum(fi.size(c)[0] for c in text)//2
-            y = rect.top + 140 + idx*50 - fi.get_height()//2
+            y = rect.top + margin_y + idx * item_gap - fi.get_height()//2
             for c in text:
                 x += dc(c, fi, x, y, color)
